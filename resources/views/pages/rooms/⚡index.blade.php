@@ -15,20 +15,22 @@ new #[Layout('layouts.app'), Title('Rooms')] class extends Component
     }
 }; ?>
 
-<div>
-    <h1>Rooms</h1>
+<div class="flex flex-wrap items-center gap-x-3">
+    <flux:heading level="1" class="lowercase">Rooms</flux:heading>
 
-    <ul>
+    <nav class="flex flex-wrap gap-x-3">
         @foreach ($this->rooms as $room)
-            <li>
-                <a href="{{ route('rooms.show', ['current_team' => auth()->user()->currentTeam->slug, 'room' => $room]) }}" wire:navigate>
+            <div>
+                <flux:link href="{{ route('rooms.show', ['current_team' => auth()->user()->currentTeam->slug, 'room' => $room]) }}" wire:navigate>
                     # {{ $room->name }}
-                </a>
-            </li>
+                </flux:link>
+            </div>
         @endforeach
-    </ul>
 
-    @can('create', App\Models\Room::class)
-        <p><a href="{{ route('rooms.create', ['current_team' => auth()->user()->currentTeam->slug]) }}" wire:navigate>+ New room</a></p>
-    @endcan
+        @can('create', App\Models\Room::class)
+            <div>
+                <flux:link href="{{ route('rooms.create', ['current_team' => auth()->user()->currentTeam->slug]) }}" wire:navigate>+ New room</flux:link>
+            </div>
+        @endcan
+    </nav>
 </div>
