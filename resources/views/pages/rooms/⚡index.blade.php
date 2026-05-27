@@ -15,11 +15,7 @@ new #[Layout('layouts.app'), Title('Rooms')] class extends Component
     }
 }; ?>
 
-<div x-data="{ notificationStatus: 'loading' }" x-init="
-    if (window.getSubscriptionStatus) {
-        window.getSubscriptionStatus().then(function(status) { notificationStatus = status; });
-    }
-">
+<div>
     <h1>Rooms</h1>
 
     <ul>
@@ -35,23 +31,4 @@ new #[Layout('layouts.app'), Title('Rooms')] class extends Component
     @can('create', App\Models\Room::class)
         <p><a href="{{ route('rooms.create', ['current_team' => auth()->user()->currentTeam->slug]) }}" wire:navigate>+ New room</a></p>
     @endcan
-
-    <template x-if="notificationStatus === 'unsubscribed'">
-        <button @click="
-            if (window.subscribeToPush) {
-                window.subscribeToPush().then(function(success) {
-                    if (success) { notificationStatus = 'subscribed'; } else { notificationStatus = 'unsubscribed'; }
-                });
-            }
-        ">Enable notifications</button>
-    </template>
-    <template x-if="notificationStatus === 'denied'">
-        <p>Notifications blocked</p>
-    </template>
-    <template x-if="notificationStatus === 'unsupported'">
-        <p>Push not supported</p>
-    </template>
-    <template x-if="notificationStatus === 'subscribed'">
-        <p>Notifications on</p>
-    </template>
 </div>

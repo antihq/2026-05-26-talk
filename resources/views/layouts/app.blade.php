@@ -25,6 +25,30 @@
 
                     <div class="flex gap-x-1.5">
                         logged in as <a href="{{ route('settings') }}" class="hover:underline text-blue-700 visited:text-purple-700 dark:text-blue-400 dark:visited:text-purple-400 lowercase" wire:navigate>{{ Auth::user()->email }}</a>
+                        <span x-data="{ notificationStatus: 'loading' }" x-init="
+                            if (window.getSubscriptionStatus) {
+                                window.getSubscriptionStatus().then(function(status) { notificationStatus = status; });
+                            }
+                        " class="flex gap-x-1.5">
+                            <template x-if="notificationStatus === 'unsubscribed'">
+                                <flux:button size="xs" variant="filled" @click="
+                                    if (window.subscribeToPush) {
+                                        window.subscribeToPush().then(function(success) {
+                                            if (success) { notificationStatus = 'subscribed'; } else { notificationStatus = 'unsubscribed'; }
+                                        });
+                                    }
+                                " class="lowercase">enable notifications</flux:button>
+                            </template>
+                            <template x-if="notificationStatus === 'subscribed'">
+                                <flux:badge>notifications on</flux:badge>
+                            </template>
+                            <template x-if="notificationStatus === 'denied'">
+                                <flux:badge color="red">notifications blocked</flux:badge>
+                            </template>
+                            <template x-if="notificationStatus === 'unsupported'">
+                                <flux:badge color="zinc">push not supported</flux:badge>
+                            </template>
+                        </span>
                         <form method="POST" action="{{ route('logout') }}" class="inline-flex">
                             @csrf
                             <flux:button size="xs" variant="filled" type="submit" class="lowercase">logout</flux:button>
