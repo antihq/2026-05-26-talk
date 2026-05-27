@@ -29,9 +29,10 @@ class NewMessage extends Notification implements ShouldQueue
     {
         $team = $notifiable->currentTeam;
 
-        $url = route('dashboard', [
+        $url = route('rooms.show', [
             'current_team' => $team?->slug ?? $this->room->team->slug,
-        ]).'?room='.$this->room->id;
+            'room' => $this->room,
+        ]);
 
         return (new DeclarativeWebPushMessage)
             ->title('#'.$this->room->name)

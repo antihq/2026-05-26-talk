@@ -49,10 +49,10 @@ test('toWebPush returns declarative message with correct structure', function ()
     expect($payload['notification']['title'])->toBe('#General');
     expect($payload['notification']['body'])->toBe('Alice: Hey everyone!');
     expect($payload['notification']['icon'])->toBe('/favicon.ico');
-    expect($payload['notification']['navigate'])->toContain('?room='.$room->id);
+    expect($payload['notification']['navigate'])->toContain('rooms/'.$room->id);
     expect($payload['notification']['actions'][0]['title'])->toBe('Open room');
     expect($payload['notification']['actions'][0]['action'])->toBe('open_room');
-    expect($payload['notification']['actions'][0]['navigate'])->toContain('?room='.$room->id);
+    expect($payload['notification']['actions'][0]['navigate'])->toContain('rooms/'.$room->id);
 });
 
 test('toWebPush uses notifiable current team for navigate URL', function () {
@@ -76,5 +76,5 @@ test('toWebPush uses notifiable current team for navigate URL', function () {
 
     $url = $payload['notification']['navigate'];
     expect($url)->toContain($team->slug);
-    expect($url)->toContain('?room='.$room->id);
+    expect($url)->toContain('rooms/'.$room->id);
 });

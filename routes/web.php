@@ -9,7 +9,10 @@ Route::view('/', 'pages::home')->name('home')->middleware('guest');
 Route::prefix('{current_team}')
     ->middleware(['auth', 'verified', EnsureTeamMembership::class])
     ->group(function () {
-        Route::view('/dashboard', 'pages.dashboard')->name('dashboard');
+        Route::get('dashboard', fn () => redirect()->route('rooms.index'))->name('dashboard');
+        Route::livewire('rooms', 'pages::rooms.index')->name('rooms.index');
+        Route::livewire('rooms/create', 'pages::rooms.create')->name('rooms.create');
+        Route::livewire('rooms/{room}', 'pages::rooms.show')->name('rooms.show');
     });
 
 Route::middleware(['auth'])->group(function () {
