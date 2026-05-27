@@ -79,7 +79,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     </div>
 
     <form wire:submit="sendMessage">
-        <input wire:model="body" placeholder="Type a message..." autocomplete="off">
-        <button type="submit">Send</button>
+        <flux:input wire:model="body" placeholder="Type a message..." autocomplete="off" />
+        <flux:button type="submit">Send</flux:button>
     </form>
 </div>
