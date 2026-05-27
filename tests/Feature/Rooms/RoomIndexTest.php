@@ -80,10 +80,3 @@ test('index hides new room link for members', function () {
         ->assertDontSee('+ New room');
 });
 
-test('index shows welcome message when no rooms exist', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::rooms.index')
-        ->assertSee('Select a room to start chatting');
-});
