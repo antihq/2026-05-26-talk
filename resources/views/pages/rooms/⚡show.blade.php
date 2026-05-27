@@ -61,25 +61,29 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             autoScroll = this.scrollTop + this.clientHeight >= this.scrollHeight - 50
         });
     ">
-    <a href="{{ route('rooms.index', ['current_team' => auth()->user()->currentTeam->slug]) }}" wire:navigate>&larr; all rooms</a>
-    <h1># {{ $room->name }}</h1>
+    <section class="max-w-2xl">
+        <div class="flex items-center gap-x-3">
+            <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
+            <flux:button size="sm" x-on:click="$el.closest('section').querySelector('input')?.focus()" class="lowercase">message</flux:button>
+        </div>
 
-    <div class="messages" x-ref="messages"
-        x-init="$nextTick(() => { $el.scrollTop = $el.scrollHeight })"
-        x-effect="autoScroll && $nextTick(() => { $refs.messages.scrollTop = $refs.messages.scrollHeight })">
-        @forelse ($this->messages as $message)
-            <div>
-                <strong>{{ $message->user->name }}</strong>
-                <span>{{ $message->created_at->format('g:i A') }}</span>
-                <p>{{ $message->body }}</p>
-            </div>
-        @empty
-            <p>No messages yet.</p>
-        @endforelse
-    </div>
+        <div class="messages" x-ref="messages"
+            x-init="$nextTick(() => { $el.scrollTop = $el.scrollHeight })"
+            x-effect="autoScroll && $nextTick(() => { $refs.messages.scrollTop = $refs.messages.scrollHeight })">
+            @forelse ($this->messages as $message)
+                <div>
+                    <strong>{{ $message->user->name }}</strong>
+                    <span>{{ $message->created_at->format('g:i A') }}</span>
+                    <p>{{ $message->body }}</p>
+                </div>
+            @empty
+                <p>No messages yet.</p>
+            @endforelse
+        </div>
 
-    <form wire:submit="sendMessage">
-        <flux:input wire:model="body" placeholder="Type a message..." autocomplete="off" />
-        <flux:button type="submit">Send</flux:button>
-    </form>
+        <form wire:submit="sendMessage">
+            <flux:input wire:model="body" placeholder="Type a message..." autocomplete="off" />
+            <flux:button type="submit">Send</flux:button>
+        </form>
+    </section>
 </div>
