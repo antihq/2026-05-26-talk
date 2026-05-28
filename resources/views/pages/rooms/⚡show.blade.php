@@ -67,27 +67,37 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             <flux:button size="xs" variant="filled" x-on:click="$el.closest('section').querySelector('input')?.focus()" class="lowercase">chat</flux:button>
         </div>
 
-        <div class="messages" x-ref="messages"
+        <ul role="list" class="messages divide-y divide-zinc-950/5 dark:divide-white/5" x-ref="messages"
             x-init="$nextTick(() => { $el.scrollTop = $el.scrollHeight })"
             x-effect="autoScroll && $nextTick(() => { $refs.messages.scrollTop = $refs.messages.scrollHeight })">
             @forelse ($this->messages as $message)
-                <div>
-                    <strong>{{ $message->user->name }}</strong>
-                    <span>{{ $message->created_at->format('g:i A') }}</span>
+                <li @class([
+                    'py-2',
+                    'flex flex-col items-end' => $message->user_id === auth()->id(),
+                ])>
+                    <div class="flex items-center gap-x-3">
+                        @if ($message->user_id === auth()->id())
+                            <span class="text-sm/5 sm:text-xs/5">{{ $message->created_at->format('g:i A') }}</span>
+                            <p class="font-semibold">{{ $message->user->name }}</p>
+                        @else
+                            <p class="font-semibold">{{ $message->user->name }}</p>
+                            <span class="text-sm/5 sm:text-xs/5">{{ $message->created_at->format('g:i A') }}</span>
+                        @endif
+                    </div>
                     <p>{{ $message->body }}</p>
-                </div>
+                </li>
             @empty
-                <p>No messages yet.</p>
+                <li class="py-2"><p>No messages yet.</p></li>
             @endforelse
-        </div>
+        </ul>
 
         <form wire:submit="sendMessage" class="mt-8">
-            <flux:field class="max-w-sm">
+            <flux:field>
                 <flux:label class="lowercase">say something</flux:label>
                 <flux:input wire:model="body" autocomplete="off" />
             </flux:field>
 
-            <div class="mt-4">
+            <div class="mt-4 flex justify-end">
                 <flux:button type="submit" variant="primary" color="lime" class="lowercase">say it</flux:button>
             </div>
         </form>
