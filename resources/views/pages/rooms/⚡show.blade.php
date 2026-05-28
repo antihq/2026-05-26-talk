@@ -64,7 +64,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     <section class="max-w-2xl">
         <div class="flex items-center gap-x-3">
             <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
-            <flux:button size="sm" x-on:click="$el.closest('section').querySelector('input')?.focus()" class="lowercase">message</flux:button>
+            <flux:button size="xs" variant="filled" x-on:click="$el.closest('section').querySelector('input')?.focus()" class="lowercase">chat</flux:button>
         </div>
 
         <div class="messages" x-ref="messages"
@@ -81,9 +81,15 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             @endforelse
         </div>
 
-        <form wire:submit="sendMessage">
-            <flux:input wire:model="body" placeholder="Type a message..." autocomplete="off" />
-            <flux:button type="submit">Send</flux:button>
+        <form wire:submit="sendMessage" class="mt-8">
+            <flux:field class="max-w-sm">
+                <flux:label class="lowercase">say something</flux:label>
+                <flux:input wire:model="body" autocomplete="off" />
+            </flux:field>
+
+            <div class="mt-4">
+                <flux:button type="submit" variant="primary" color="lime" class="lowercase">say it</flux:button>
+            </div>
         </form>
     </section>
 </div>
