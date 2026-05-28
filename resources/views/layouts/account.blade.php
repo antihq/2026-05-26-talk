@@ -6,22 +6,21 @@
     <body class="bg-white dark:bg-zinc-900 antialiased text-zinc-950 dark:text-white text-base/6 sm:text-sm/6">
         <header>
             <nav class="flex items-end flex-wrap py-5">
-                <div class="lg:w-64 lg:justify-end px-4 flex gap-x-3 flex-wrap">
-                    <a href="{{ route('dashboard') }}" class="text-zinc-500 dark:text-zinc-400" wire:navigate>
-                        {{ Str::of(config('app.name'))->explode('-', 4)->last() }}
-                        <sup>{{ Str::of(config('app.name'))->explode('-', 4)->take(3)->join('-') }}</sup>
+                <div class="lg:w-64 lg:text-right px-4 gap-x-3 text-zinc-500 dark:text-zinc-400">
+                    <a href="{{ route('home') }}" class="text-zinc-500 dark:text-zinc-400" wire:navigate>
+                        {{ config('app.name') }}
                     </a>
                 </div>
 
-                <div class="flex-1 flex-wrap flex px-4">
+                <div class="w-full lg:flex-1 flex-wrap flex px-4 gap-x-3 md:justify-between">
                     <div class="flex gap-x-3">
-                        <a href="{{ route('dashboard') }}" class="text-base/6 sm:text-sm/6 hover:underline text-blue-700 visited:text-purple-700 dark:text-blue-400 dark:visited:text-purple-400 lowercase" wire:navigate>dashboard</a>
+                        <flux:link :href="route('dashboard')" class="lowercase" wire:navigate :accent="false" :variant="request()->routeIs('dashboard') ? null : 'ghost'">dashboard</flux:link>
                     </div>
 
                     <div aria-hidden="true" class="flex-1"></div>
 
-                    <div class="flex gap-x-1.5">
-                        logged in as <a href="{{ route('settings') }}" class="hover:underline text-blue-700 visited:text-purple-700 dark:text-blue-400 dark:visited:text-purple-400 lowercase" wire:navigate>{{ Auth::user()->email }}</a>
+                    <div>
+                        logged in as <flux:link :href="route('settings')" class="lowercase" wire:navigate :accent="false">{{ Auth::user()->email }}</flux:link>
                         <form method="POST" action="{{ route('logout') }}" class="inline-flex">
                             @csrf
                             <flux:button size="xs" variant="filled" type="submit" class="lowercase">logout</flux:button>

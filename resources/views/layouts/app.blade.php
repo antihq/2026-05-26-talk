@@ -6,30 +6,31 @@
     <body class="bg-white dark:bg-zinc-900 antialiased text-zinc-950 dark:text-white text-base/6 sm:text-sm/6">
         <header>
             <nav class="flex items-end flex-wrap py-5">
-                <div class="lg:w-64 lg:justify-end px-4 flex gap-x-3 flex-wrap">
-                    <a href="{{ route('dashboard') }}" class="text-zinc-500 dark:text-zinc-400" wire:navigate>
-                        {{ Str::of(config('app.name'))->explode('-', 4)->last() }}
-                        <sup>{{ Str::of(config('app.name'))->explode('-', 4)->take(3)->join('-') }}</sup>
+                <div class="lg:w-64 lg:text-right px-4 gap-x-3 text-zinc-500 dark:text-zinc-400">
+                    <a href="{{ route('dashboard', ['current_team' => Auth::user()->currentTeam]) }}" wire:navigate>
+                        {{ config('app.name') }}
                     </a>
-                    <a href="{{ route('dashboard') }}" class="text-blue-700 visited:text-purple-700 dark:text-blue-400 dark:visited:text-purple-400 hover:underline" wire:navigate>{{ Auth::user()->currentTeam->name }}</a>
-                    <a href="{{ route('teams.switch') }}" class="text-blue-700 visited:text-purple-700 dark:text-blue-400 dark:visited:text-purple-400 hover:underline" wire:navigate>switch team</a>
+                    (<flux:link :href="route('dashboard', ['current_team' => Auth::user()->currentTeam])" wire:navigate :accent="false">{{ Auth::user()->currentTeam->name }}</flux:link>)
+                    <flux:button size="xs" variant="filled" :href="route('teams.switch')" wire:navigate class="lowercase">switch team</flux:button>
                 </div>
 
-                <div class="flex-1 flex-wrap flex px-4">
+                <div class="w-full lg:flex-1 flex-wrap flex px-4 gap-x-3 md:justify-between">
                     <div class="flex gap-x-3">
-                        <a href="{{ route('rooms.index', ['current_team' => Auth::user()->currentTeam->slug]) }}" class="text-base/6 sm:text-sm/6 hover:underline text-blue-700 visited:text-purple-700 dark:text-blue-400 dark:visited:text-purple-400 lowercase" wire:navigate>rooms</a>
-                        <a href="{{ route('teams.settings', Auth::user()->currentTeam->slug) }}" class="text-base/6 sm:text-sm/6 hover:underline text-blue-700 visited:text-purple-700 dark:text-blue-400 dark:visited:text-purple-400 lowercase" wire:navigate>settings</a>
+                        @if (Auth::user()->currentTeam)
+                            <flux:link :href="route('rooms.index', ['current_team' => Auth::user()->currentTeam])" class="lowercase" wire:navigate :accent="false" :variant="request()->routeIs('rooms.*') ? null : 'ghost'">rooms</flux:link>
+                            <flux:link :href="route('teams.settings', Auth::user()->currentTeam)" class="lowercase" wire:navigate :accent="false" :variant="request()->routeIs('teams.settings') ? null : 'ghost'">settings</flux:link>
+                        @endif
                     </div>
 
                     <div aria-hidden="true" class="flex-1"></div>
 
-                    <div class="flex gap-x-1.5">
-                        logged in as <a href="{{ route('settings') }}" class="hover:underline text-blue-700 visited:text-purple-700 dark:text-blue-400 dark:visited:text-purple-400 lowercase" wire:navigate>{{ Auth::user()->email }}</a>
+                    <div>
+                        logged in as <flux:link :href="route('settings')" class="lowercase" wire:navigate :accent="false">{{ Auth::user()->email }}</flux:link>
                         <span x-data="{ notificationStatus: 'loading' }" x-init="
                             if (window.getSubscriptionStatus) {
                                 window.getSubscriptionStatus().then(function(status) { notificationStatus = status; });
                             }
-                        " class="flex gap-x-1.5">
+                        ">
                             <template x-if="notificationStatus === 'unsubscribed'">
                                 <flux:button size="xs" variant="filled" @click="
                                     if (window.subscribeToPush) {
