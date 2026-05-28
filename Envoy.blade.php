@@ -32,7 +32,8 @@
 
 @task('pull-code', ['on' => 'web'])
     cd {{ $path }}
-    git pull origin {{ $branch }}
+    git fetch origin {{ $branch }}
+    git reset --hard origin/{{ $branch }}
 @endtask
 
 @task('install-composer', ['on' => 'web'])
