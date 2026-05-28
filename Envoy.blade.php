@@ -21,6 +21,7 @@
     run-migrations
     optimize
     reload-phpfpm
+    restart-queue
     maintenance-off
 @endstory
 
@@ -63,6 +64,11 @@
     touch /tmp/fpmlock 2>/dev/null || true
     ( flock -w 10 9 || exit 1
         sudo service php8.5-fpm reload ) 9>/tmp/fpmlock
+@endtask
+
+@task('restart-queue', ['on' => 'web'])
+    cd {{ $path }}
+    php artisan queue:restart
 @endtask
 
 @task('assert-branch-main', ['on' => 'localhost'])
