@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use NotificationChannels\WebPush\PushSubscription;
 
@@ -17,11 +18,15 @@ class WebPushController extends Controller
 
         $user = $request->user();
 
-        $user->updatePushSubscription(
-            $request->endpoint,
-            $request->input('keys.p256dh'),
-            $request->input('keys.auth'),
-        );
+        try {
+            $user->updatePushSubscription(
+                $request->endpoint,
+                $request->input('keys.p256dh'),
+                $request->input('keys.auth'),
+            );
+        } catch (UniqueConstraintViolationException $e) {
+            // Subscription already exists — idempotent
+        }
 
         return response()->json(['success' => true]);
     }
