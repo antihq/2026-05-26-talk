@@ -11,7 +11,7 @@ class Room extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['team_id', 'name', 'description', 'created_by'];
+    protected $fillable = ['team_id', 'name', 'created_by'];
 
     public function team(): BelongsTo
     {

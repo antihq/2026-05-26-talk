@@ -9,21 +9,17 @@ new #[Layout('layouts.app'), Title('Create Room')] class extends Component
 {
     public string $name = '';
 
-    public ?string $description = null;
-
     public function create(): void
     {
         $this->authorize('create', Room::class);
 
         $this->validate([
             'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $room = Room::create([
             'team_id' => auth()->user()->currentTeam->id,
             'name' => $this->name,
-            'description' => $this->description,
             'created_by' => auth()->id(),
         ]);
 
@@ -42,12 +38,6 @@ new #[Layout('layouts.app'), Title('Create Room')] class extends Component
             <flux:label>Room name</flux:label>
             <flux:input wire:model="name" type="text" required autofocus />
             <flux:error name="name" />
-        </flux:field>
-
-        <flux:field>
-            <flux:label>Description</flux:label>
-            <flux:textarea wire:model="description" />
-            <flux:error name="description" />
         </flux:field>
 
         <div>

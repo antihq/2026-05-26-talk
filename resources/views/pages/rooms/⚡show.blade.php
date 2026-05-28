@@ -62,7 +62,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         });
     ">
     <section class="max-w-2xl">
-        <div class="flex items-center gap-x-3">
+        <div class="flex items-center gap-x-3 sticky top-0 z-10 bg-white dark:bg-zinc-900 py-4">
             <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
             <flux:button size="xs" variant="filled" x-on:click="$el.closest('section').querySelector('input')?.focus()" class="lowercase">chat</flux:button>
         </div>
@@ -94,7 +94,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         <form wire:submit="sendMessage" class="mt-8">
             <flux:field>
                 <flux:label class="lowercase">say something</flux:label>
-                <flux:input wire:model="body" autocomplete="off" />
+                <flux:input wire:model="body" autocomplete="off" autofocus />
             </flux:field>
 
             <div class="mt-4 flex justify-end">

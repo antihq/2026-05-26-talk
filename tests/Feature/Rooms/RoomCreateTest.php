@@ -12,14 +12,12 @@ test('owner can create a room', function () {
     Livewire::actingAs($user)
         ->test('pages::rooms.create')
         ->set('name', 'General')
-        ->set('description', 'General discussion')
         ->call('create')
         ->assertHasNoErrors();
 
     $this->assertDatabaseHas('rooms', [
         'team_id' => $team->id,
         'name' => 'General',
-        'description' => 'General discussion',
         'created_by' => $user->id,
     ]);
 });
@@ -82,17 +80,6 @@ test('room name cannot exceed 255 characters', function () {
         ->set('name', str_repeat('a', 256))
         ->call('create')
         ->assertHasErrors(['name']);
-});
-
-test('room description cannot exceed 1000 characters', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test('pages::rooms.create')
-        ->set('name', 'General')
-        ->set('description', str_repeat('a', 1001))
-        ->call('create')
-        ->assertHasErrors(['description']);
 });
 
 test('creating a room redirects to the new room', function () {

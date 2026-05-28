@@ -16,7 +16,6 @@ class RoomFactory extends Factory
         return [
             'team_id' => Team::factory(),
             'name' => fake()->word(),
-            'description' => fake()->sentence(),
             'created_by' => User::factory(),
         ];
     }
