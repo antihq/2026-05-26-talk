@@ -1,11 +1,18 @@
-@servers(['web' => 'calm-cliff'])
+@servers(['web' => 'calm-cliff', 'localhost' => '127.0.0.1'])
 
 @setup
     $path = '2026-05-26-talk.antihq.com/';
     $branch = 'main';
 @endsetup
 
+@story('pre-check')
+    assert-branch-main
+    assert-tests-pass
+    assert-nothing-to-push
+@endstory
+
 @story('deploy')
+    pre-check
     maintenance-on
     pull-code
     install-composer
@@ -56,6 +63,21 @@
     touch /tmp/fpmlock 2>/dev/null || true
     ( flock -w 10 9 || exit 1
         sudo service php8.5-fpm reload ) 9>/tmp/fpmlock
+@endtask
+
+@task('assert-branch-main', ['on' => 'localhost'])
+    [ "$(git branch --show-current)" = 'main' ] || { echo '❌ Not on main branch'; exit 1; }
+    echo '✓ On main branch'
+@endtask
+
+@task('assert-tests-pass', ['on' => 'localhost'])
+    vendor/bin/pest
+@endtask
+
+@task('assert-nothing-to-push', ['on' => 'localhost'])
+    [ -z "$(git status --porcelain)" ] || { echo '❌ Uncommitted changes'; exit 1; }
+    [ -z "$(git log origin/main..HEAD --oneline)" ] || { echo '❌ Ahead of origin/main – push first'; exit 1; }
+    echo '✓ Up to date with origin/main'
 @endtask
 
 @task('maintenance-off', ['on' => 'web'])
