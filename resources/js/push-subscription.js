@@ -8,6 +8,24 @@ function urlBase64ToUint8Array(base64String) {
     return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
 }
 
+async function sendSubscriptionToServer(subscription) {
+    const response = await fetch('/webpush/subscribe', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
+        },
+        body: JSON.stringify(subscription),
+    });
+
+    if (!response.ok) {
+        console.error('Push subscribe failed:', await response.text());
+        return false;
+    }
+
+    return true;
+}
+
 async function subscribe() {
     if (!swRegistration) {
         return false;
@@ -25,21 +43,7 @@ async function subscribe() {
             applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
         });
 
-        const response = await fetch('/webpush/subscribe', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'),
-            },
-            body: JSON.stringify(subscription),
-        });
-
-        if (!response.ok) {
-            console.error('Push subscribe failed:', await response.text());
-            return false;
-        }
-
-        return true;
+        return await sendSubscriptionToServer(subscription);
     } catch (e) {
         console.error('Push subscription error:', e);
         return false;
@@ -85,6 +89,9 @@ export function registerSW() {
 
         registration.pushManager.getSubscription().then((subscription) => {
             if (subscription) {
+                if (Notification.permission === 'granted') {
+                    sendSubscriptionToServer(subscription);
+                }
                 return;
             }
 
