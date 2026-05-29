@@ -55,13 +55,13 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     }
 }; ?>
 
-<div class="max-w-2xl relative" x-data="{ autoScroll: true }" wire:poll.5s
+<div class="max-w-2xl" x-data="{ autoScroll: true }" wire:poll.5s
     x-init="
         $el.querySelector('.messages')?.addEventListener('scroll', function() {
             autoScroll = this.scrollTop + this.clientHeight >= this.scrollHeight - 50
         });
     ">
-    <div class="flex items-center gap-x-3 bg-white dark:bg-zinc-900" x-data="{ top: 0 }" x-init="top = document.querySelector('header.sticky')?.offsetHeight || 0" @resize.window="top = document.querySelector('header.sticky')?.offsetHeight || 0" x-bind:style="{ position: 'sticky', top: top + 'px' }">
+    <div class="flex items-center gap-x-3 bg-white dark:bg-zinc-900 z-10" x-data="{ top: 0 }" x-init="top = document.querySelector('header.sticky')?.offsetHeight || 0" @resize.window="top = document.querySelector('header.sticky')?.offsetHeight || 0" x-bind:style="{ position: 'sticky', top: top + 'px' }">
         <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
         <flux:button size="xs" variant="filled" x-on:click="$el.closest('section').querySelector('input')?.focus()" class="lowercase">chat</flux:button>
     </div>
@@ -92,7 +92,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         </ul>
     </div>
 
-    <form wire:submit="sendMessage" class="sticky bottom-4">
+    <form wire:submit="sendMessage" class="sticky bottom-4 bg-white dark:bg-zinc-900 ">
         <flux:field>
             <flux:label class="lowercase">say something</flux:label>
             <flux:input wire:model="body" autocomplete="off" autofocus />

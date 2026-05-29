@@ -4,7 +4,7 @@
         @include('partials.head')
     </head>
     <body class="bg-white dark:bg-zinc-900 antialiased text-zinc-950 dark:text-white text-base/6 sm:text-sm/6">
-        <header class="sticky top-0">
+        <header class="sticky top-0 bg-white dark:bg-zinc-900 z-10">
             <nav class="flex items-end flex-wrap py-5">
                 <div class="lg:w-64 lg:text-right px-4 gap-x-3 text-zinc-500 dark:text-zinc-400">
                     <a href="{{ route('dashboard', ['current_team' => Auth::user()->currentTeam]) }}" wire:navigate>
