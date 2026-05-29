@@ -8,7 +8,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
-new #[Layout('layouts.room'), Title('Room')] class extends Component
+new #[Layout('layouts.app'), Title('Room')] class extends Component
 {
     public Room $room;
 
@@ -55,47 +55,49 @@ new #[Layout('layouts.room'), Title('Room')] class extends Component
     }
 }; ?>
 
-<div class="flex-1 min-h-0 flex flex-col max-w-2xl" x-data="{ autoScroll: true }" wire:poll.5s
+<div class="max-w-2xl relative" x-data="{ autoScroll: true }" wire:poll.5s
     x-init="
         $el.querySelector('.messages')?.addEventListener('scroll', function() {
             autoScroll = this.scrollTop + this.clientHeight >= this.scrollHeight - 50
         });
     ">
-    <div class="flex items-center gap-x-3 bg-white dark:bg-zinc-900 p-4 pt-0">
+    <div class="flex items-center gap-x-3 bg-white dark:bg-zinc-900" x-data="{ top: 0 }" x-init="top = document.querySelector('header.sticky')?.offsetHeight || 0" @resize.window="top = document.querySelector('header.sticky')?.offsetHeight || 0" x-bind:style="{ position: 'sticky', top: top + 'px' }">
         <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
         <flux:button size="xs" variant="filled" x-on:click="$el.closest('section').querySelector('input')?.focus()" class="lowercase">chat</flux:button>
     </div>
 
-    <ul role="list" class="messages flex-1 overflow-y-auto divide-y divide-zinc-950/5 dark:divide-white/5 px-4" x-ref="messages"
-        x-init="$nextTick(() => { $el.scrollTop = $el.scrollHeight })"
-        x-effect="autoScroll && $nextTick(() => { $refs.messages.scrollTop = $refs.messages.scrollHeight })">
-        @forelse ($this->messages as $message)
-            <li @class([
-                'py-2',
-                'flex flex-col items-end' => $message->user_id === auth()->id(),
-            ])>
-                <div class="flex items-center gap-x-3">
-                    @if ($message->user_id === auth()->id())
-                        <span class="text-sm/5 sm:text-xs/5">{{ $message->created_at->format('g:i A') }}</span>
-                        <p class="font-semibold">{{ $message->user->name }}</p>
-                    @else
-                        <p class="font-semibold">{{ $message->user->name }}</p>
-                        <span class="text-sm/5 sm:text-xs/5">{{ $message->created_at->format('g:i A') }}</span>
-                    @endif
-                </div>
-                <p>{{ $message->body }}</p>
-            </li>
-        @empty
-            <li class="py-2"><p>No messages yet.</p></li>
-        @endforelse
-    </ul>
+    <div class="relative">
+        <ul role="list" class="messages divide-y divide-zinc-950/5 dark:divide-white/5" x-ref="messages"
+            x-init="$nextTick(() => { $el.scrollTop = $el.scrollHeight })"
+            x-effect="autoScroll && $nextTick(() => { $refs.messages.scrollTop = $refs.messages.scrollHeight })">
+            @forelse ($this->messages as $message)
+                <li @class([
+                    'py-2',
+                    'flex flex-col items-end' => $message->user_id === auth()->id(),
+                ])>
+                    <div class="flex items-center gap-x-3">
+                        @if ($message->user_id === auth()->id())
+                            <span class="text-sm/5 sm:text-xs/5">{{ $message->created_at->format('g:i A') }}</span>
+                            <p class="font-semibold">{{ $message->user->name }}</p>
+                        @else
+                            <p class="font-semibold">{{ $message->user->name }}</p>
+                            <span class="text-sm/5 sm:text-xs/5">{{ $message->created_at->format('g:i A') }}</span>
+                        @endif
+                    </div>
+                    <p>{{ $message->body }}</p>
+                </li>
+            @empty
+                <li class="py-2"><p>No messages yet.</p></li>
+            @endforelse
+        </ul>
+    </div>
 
-    <form wire:submit="sendMessage" class="p-4">
+    <form wire:submit="sendMessage" class="sticky bottom-4">
         <flux:field>
             <flux:label class="lowercase">say something</flux:label>
             <flux:input wire:model="body" autocomplete="off" autofocus />
         </flux:field>
-         <div class="mt-4 flex justify-end">
+        <div class="mt-4 flex justify-end">
             <flux:button type="submit" variant="primary" color="lime" class="lowercase">say it</flux:button>
         </div>
     </form>
