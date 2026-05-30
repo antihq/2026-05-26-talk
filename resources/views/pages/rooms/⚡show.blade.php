@@ -96,8 +96,8 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         }
     }"
 >
-    <ul role="list" class="divide-y divide-zinc-950/5 dark:divide-white/5 pb-40">
-        @forelse ($this->messages as $message)
+    <ul role="list" class="divide-y divide-zinc-950/5 dark:divide-white/5">
+        @foreach ($this->messages as $message)
             <li @class([
                 'py-2',
                 'flex flex-col items-end' => $message->user_id === auth()->id(),
@@ -113,9 +113,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                 </div>
                 <p>{{ $message->body }}</p>
             </li>
-        @empty
-            <li class="py-8 text-center text-zinc-500 dark:text-zinc-400">No messages yet</li>
-        @endforelse
+        @endforeach
     </ul>
 
     <div x-cloak x-show="!nearBottom" x-transition class="fixed bottom-24 right-4 z-10">

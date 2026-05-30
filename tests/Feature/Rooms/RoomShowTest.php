@@ -146,16 +146,6 @@ test('message sender name is displayed', function () {
         ->assertSee('Alice');
 });
 
-test('show page shows empty state when no messages exist', function () {
-    $user = User::factory()->create();
-    $team = $user->currentTeam;
-    $room = Room::factory()->create(['team_id' => $team->id]);
-
-    Livewire::actingAs($user)
-        ->test('pages::rooms.show', ['room' => $room])
-        ->assertSee('No messages yet');
-});
-
 test('show page displays sent messages', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
