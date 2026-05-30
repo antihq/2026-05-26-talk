@@ -93,6 +93,22 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             this.$nextTick(() => {
                 window.scrollTo(0, document.body.scrollHeight)
             })
+        },
+
+        localTime(iso) {
+            const date = new Date(iso)
+            const now = new Date()
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+            const yesterday = new Date(today.getTime() - 86400000)
+            const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+
+            let dayLabel
+            if (msgDay.getTime() === today.getTime()) dayLabel = 'today'
+            else if (msgDay.getTime() === yesterday.getTime()) dayLabel = 'yesterday'
+            else if (date.getFullYear() === now.getFullYear()) dayLabel = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(date)
+            else dayLabel = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
+
+            return dayLabel + ' at ' + new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(date)
         }
     }"
 >
@@ -104,11 +120,17 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             ])>
                 <div class="flex items-center gap-x-3">
                     @if ($message->user_id === auth()->id())
-                        <span class="text-sm/5 sm:text-xs/5">{{ $message->created_at->format('g:i A') }}</span>
+                        <time class="text-sm/5 sm:text-xs/5"
+                              datetime="{{ $message->created_at->toISOString() }}"
+                              x-text="localTime($el.getAttribute('datetime'))"
+                        >{{ $message->created_at->format('g:i A') }}</time>
                         <p class="font-semibold">{{ $message->user->name }}</p>
                     @else
                         <p class="font-semibold">{{ $message->user->name }}</p>
-                        <span class="text-sm/5 sm:text-xs/5">{{ $message->created_at->format('g:i A') }}</span>
+                        <time class="text-sm/5 sm:text-xs/5"
+                              datetime="{{ $message->created_at->toISOString() }}"
+                              x-text="localTime($el.getAttribute('datetime'))"
+                        >{{ $message->created_at->format('g:i A') }}</time>
                     @endif
                 </div>
                 <p>{{ $message->body }}</p>
