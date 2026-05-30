@@ -102,15 +102,15 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         }
     }"
 >
-    <ul role="list" class="divide-y divide-zinc-950/5 dark:divide-white/5">
+    <ul role="list">
         @foreach ($this->messages as $message)
             <li data-user-id="{{ $message->user_id }}"
                 data-timestamp="{{ $message->created_at->getTimestamp() }}"
                 @class([
-                'py-2',
+                'group py-2 data-threaded:pt-0 data-threaded:pb-0',
                 'flex flex-col items-end' => $message->user_id === auth()->id(),
             ])>
-                <div class="flex items-center gap-x-3">
+                <div class="flex items-center gap-x-3 group-data-threaded:hidden">
                     @if ($message->user_id === auth()->id())
                         <time class="text-sm/5 sm:text-xs/5"
                               datetime="{{ $message->created_at->toISOString() }}"
@@ -165,7 +165,11 @@ function thread(list) {
         var recent = Math.abs(
             Number(prev.dataset.timestamp) - Number(curr.dataset.timestamp)
         ) <= WINDOW_SEC
-        curr.classList.toggle('threaded', sameUser && recent)
+        if (sameUser && recent) {
+            curr.dataset.threaded = ''
+        } else {
+            delete curr.dataset.threaded
+        }
     }
 }
 

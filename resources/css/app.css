@@ -26,13 +26,3 @@
         --color-accent-foreground: var(--color-white);
     }
 }
-
-.threaded {
-    padding-top: 0;
-    padding-bottom: 0;
-    border-top-width: 0;
-
-    > div:first-child {
-        display: none;
-    }
-}
