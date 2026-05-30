@@ -66,7 +66,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         init() {
             this.scrollToBottom()
             this.setupScrollDetector()
-            this.setupMutationObserver()
+
             window.addEventListener('message-sent', () => {
                 this.nearBottom = true
                 this.scrollToBottom()
@@ -77,16 +77,6 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             window.addEventListener('scroll', () => {
                 this.nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 100
             }, { passive: true })
-        },
-
-        setupMutationObserver() {
-            const el = this.$el.querySelector('[role=list]')
-            const observer = new MutationObserver(() => {
-                if (this.nearBottom) {
-                    this.scrollToBottom()
-                }
-            })
-            observer.observe(el, { childList: true, subtree: true })
         },
 
         scrollToBottom() {
@@ -114,7 +104,9 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 >
     <ul role="list" class="divide-y divide-zinc-950/5 dark:divide-white/5">
         @foreach ($this->messages as $message)
-            <li @class([
+            <li data-user-id="{{ $message->user_id }}"
+                data-timestamp="{{ $message->created_at->getTimestamp() }}"
+                @class([
                 'py-2',
                 'flex flex-col items-end' => $message->user_id === auth()->id(),
             ])>
@@ -159,4 +151,30 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         </form>
     </div>
 </div>
+
+<script>
+var WINDOW_SEC = 5 * 60
+
+function thread(list) {
+    if (!list) return
+    var items = list.children
+    for (var i = 1; i < items.length; i++) {
+        var prev = items[i - 1]
+        var curr = items[i]
+        var sameUser = prev.dataset.userId === curr.dataset.userId
+        var recent = Math.abs(
+            Number(prev.dataset.timestamp) - Number(curr.dataset.timestamp)
+        ) <= WINDOW_SEC
+        curr.classList.toggle('threaded', sameUser && recent)
+    }
+}
+
+thread($wire.$el.querySelector('[role=list]'))
+
+$wire.interceptMessage(({ onFinish }) => {
+    onFinish(() => {
+        thread($wire.$el.querySelector('[role=list]'))
+    })
+})
+</script>
 
