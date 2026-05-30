@@ -114,6 +114,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                 <p>{{ $message->body }}</p>
             </li>
         @empty
+            <li class="py-8 text-center text-zinc-500 dark:text-zinc-400">No messages yet</li>
         @endforelse
     </ul>
 
