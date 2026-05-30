@@ -8,6 +8,8 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+[x-cloak] { display: none !important; }
+
 @theme {
     --font-sans: Inter, sans-serif;
 }

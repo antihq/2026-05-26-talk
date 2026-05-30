@@ -52,11 +52,51 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         ));
 
         $this->reset('body');
+
+        $this->dispatch('message-sent');
     }
 }; ?>
 
-<div class="max-w-2xl" wire:poll.5s>
-    <ul role="list" class="divide-y divide-zinc-950/5 dark:divide-white/5">
+<div
+    class="max-w-2xl"
+    wire:poll.5s
+    x-data="{
+        nearBottom: true,
+
+        init() {
+            this.scrollToBottom()
+            this.setupScrollDetector()
+            this.setupMutationObserver()
+            window.addEventListener('message-sent', () => {
+                this.nearBottom = true
+                this.scrollToBottom()
+            })
+        },
+
+        setupScrollDetector() {
+            window.addEventListener('scroll', () => {
+                this.nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 100
+            }, { passive: true })
+        },
+
+        setupMutationObserver() {
+            const el = this.$el.querySelector('[role=list]')
+            const observer = new MutationObserver(() => {
+                if (this.nearBottom) {
+                    this.scrollToBottom()
+                }
+            })
+            observer.observe(el, { childList: true, subtree: true })
+        },
+
+        scrollToBottom() {
+            this.$nextTick(() => {
+                window.scrollTo(0, document.body.scrollHeight)
+            })
+        }
+    }"
+>
+    <ul role="list" class="divide-y divide-zinc-950/5 dark:divide-white/5 pb-40">
         @forelse ($this->messages as $message)
             <li @class([
                 'py-2',
@@ -77,7 +117,13 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         @endforelse
     </ul>
 
-    <div class="sticky bottom-4 bg-white dark:bg-zinc-900">
+    <div x-cloak x-show="!nearBottom" x-transition class="fixed bottom-24 right-4 z-10">
+        <flux:button size="xs" variant="filled" @click="scrollToBottom(); nearBottom = true;" class="lowercase shadow-lg">
+            jump to latest
+        </flux:button>
+    </div>
+
+    <div class="sticky bottom-0 bg-white dark:bg-zinc-900 py-4 border-t border-zinc-950/5 dark:border-white/5">
         <div class="flex items-center gap-x-3">
             <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
         </div>
@@ -92,3 +138,4 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         </form>
     </div>
 </div>
+
