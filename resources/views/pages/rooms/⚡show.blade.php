@@ -21,12 +21,22 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
     public function getMessagesProperty()
     {
-        return $this->room->messages()
+        $messages = $this->room->messages()
             ->with('user')
             ->latest()
             ->limit(100)
             ->get()
-            ->reverse();
+            ->reverse()
+            ->values();
+
+        return $messages->map(function ($message, $index) use ($messages) {
+            $prev = $messages->get($index - 1);
+            $message->isThreaded = $prev
+                && $prev->user_id === $message->user_id
+                && $prev->created_at->diffInSeconds($message->created_at) <= 300;
+
+            return $message;
+        });
     }
 
     public function sendMessage(): void
@@ -102,29 +112,29 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         }
     }"
 >
-    <ul role="list">
+    <ul role="list" class="divide-y divide-zinc-950/5 dark:divide-white/5">
         @foreach ($this->messages as $message)
-            <li data-user-id="{{ $message->user_id }}"
-                data-timestamp="{{ $message->created_at->getTimestamp() }}"
-                @class([
-                'group py-2 data-threaded:pt-0 data-threaded:pb-0',
+            <li @class([
+                'py-2',
                 'flex flex-col items-end' => $message->user_id === auth()->id(),
             ])>
-                <div class="flex items-center gap-x-3 group-data-threaded:hidden">
+                @if (!$message->isThreaded)
+                <div class="flex items-center gap-x-3">
                     @if ($message->user_id === auth()->id())
-                        <time class="text-sm/5 sm:text-xs/5"
+                        <time class="lowercase"
                               datetime="{{ $message->created_at->toISOString() }}"
                               x-text="localTime($el.getAttribute('datetime'))"
                         >{{ $message->created_at->format('g:i A') }}</time>
                         <p class="font-semibold">{{ $message->user->name }}</p>
                     @else
                         <p class="font-semibold">{{ $message->user->name }}</p>
-                        <time class="text-sm/5 sm:text-xs/5"
+                        <time class="lowercase"
                               datetime="{{ $message->created_at->toISOString() }}"
                               x-text="localTime($el.getAttribute('datetime'))"
                         >{{ $message->created_at->format('g:i A') }}</time>
                     @endif
                 </div>
+                @endif
                 <p>{{ $message->body }}</p>
             </li>
         @endforeach
@@ -152,33 +162,4 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     </div>
 </div>
 
-<script>
-var WINDOW_SEC = 5 * 60
-
-function thread(list) {
-    if (!list) return
-    var items = list.children
-    for (var i = 1; i < items.length; i++) {
-        var prev = items[i - 1]
-        var curr = items[i]
-        var sameUser = prev.dataset.userId === curr.dataset.userId
-        var recent = Math.abs(
-            Number(prev.dataset.timestamp) - Number(curr.dataset.timestamp)
-        ) <= WINDOW_SEC
-        if (sameUser && recent) {
-            curr.dataset.threaded = ''
-        } else {
-            delete curr.dataset.threaded
-        }
-    }
-}
-
-thread($wire.$el.querySelector('[role=list]'))
-
-$wire.interceptMessage(({ onFinish }) => {
-    onFinish(() => {
-        thread($wire.$el.querySelector('[role=list]'))
-    })
-})
-</script>
 
