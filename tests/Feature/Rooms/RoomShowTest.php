@@ -201,6 +201,23 @@ test('presence cache key is set when viewing a room', function () {
     expect(Cache::has("room:{$room->id}:presence:{$user->id}"))->toBeTrue();
 });
 
+test('absent clears presence cache key', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    expect(Cache::has("room:{$room->id}:presence:{$user->id}"))->toBeTrue();
+
+    Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->call('absent');
+
+    expect(Cache::has("room:{$room->id}:presence:{$user->id}"))->toBeFalse();
+});
+
 test('three consecutive messages from same user within 5 minutes are threaded', function () {
     $user = User::factory()->create(['name' => 'Alice']);
     $team = $user->currentTeam;

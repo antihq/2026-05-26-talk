@@ -6,6 +6,7 @@ use App\Notifications\NewMessage;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -42,6 +43,12 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         });
     }
 
+    #[Renderless]
+    public function absent(): void
+    {
+        Cache::forget("room:{$this->room->id}:presence:" . auth()->id());
+    }
+
     public function sendMessage(): void
     {
         $this->validate([
@@ -74,6 +81,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 <div
     class="max-w-2xl"
     wire:poll.5s
+    x-on:visibilitychange.window="document.visibilityState === 'hidden' && $wire.absent()"
     x-data="{
         nearBottom: true,
 
