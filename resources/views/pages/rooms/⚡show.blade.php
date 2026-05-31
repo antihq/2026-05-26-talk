@@ -24,7 +24,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         $messages = $this->room->messages()
             ->with('user')
             ->latest()
-            ->limit(100)
+            ->limit(40)
             ->get()
             ->reverse()
             ->values();
