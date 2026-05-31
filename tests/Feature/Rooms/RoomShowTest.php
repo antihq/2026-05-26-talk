@@ -149,6 +149,116 @@ test('does not notify user currently viewing the room', function () {
     Notification::assertNotSentTo($viewer, NewMessage::class);
 });
 
+test('notifies disconnected team member', function () {
+    $sender = User::factory()->create();
+    $member = User::factory()->create();
+    $team = $sender->currentTeam;
+    $team->members()->attach($member, ['role' => TeamRole::Member->value]);
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Cache::forget("room:{$room->id}:presence:{$member->id}");
+
+    Notification::fake();
+
+    Livewire::actingAs($sender)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('body', 'Hello!')
+        ->call('sendMessage')
+        ->assertHasNoErrors();
+
+    Notification::assertSentTo($member, NewMessage::class);
+});
+
+test('notifies user whose presence has expired', function () {
+    $sender = User::factory()->create();
+    $viewer = User::factory()->create();
+    $team = $sender->currentTeam;
+    $team->members()->attach($viewer, ['role' => TeamRole::Member->value]);
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Cache::put("room:{$room->id}:presence:{$viewer->id}", true, 60);
+    Cache::forget("room:{$room->id}:presence:{$viewer->id}");
+
+    Notification::fake();
+
+    Livewire::actingAs($sender)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('body', 'Hello!')
+        ->call('sendMessage')
+        ->assertHasNoErrors();
+
+    Notification::assertSentTo($viewer, NewMessage::class);
+});
+
+test('presence cache key is set when viewing a room', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    expect(Cache::has("room:{$room->id}:presence:{$user->id}"))->toBeTrue();
+});
+
+test('three consecutive messages from same user within 5 minutes are threaded', function () {
+    $user = User::factory()->create(['name' => 'Alice']);
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => 'First',
+        'created_at' => now()->subMinutes(4),
+    ]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => 'Second',
+        'created_at' => now()->subMinutes(3),
+    ]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => 'Third',
+        'created_at' => now()->subMinutes(2),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    $component->assertSee('First')->assertSee('Second')->assertSee('Third');
+    expect(substr_count($component->html(), 'Alice'))->toBe(1);
+});
+
+test('messages exactly 5 minutes apart are threaded', function () {
+    $user = User::factory()->create(['name' => 'Alice']);
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => 'First',
+        'created_at' => now()->subSeconds(300),
+    ]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => 'Second',
+        'created_at' => now(),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    expect(substr_count($component->html(), 'Alice'))->toBe(1);
+});
+
 test('message sender name is displayed', function () {
     $user = User::factory()->create(['name' => 'Alice']);
     $team = $user->currentTeam;
