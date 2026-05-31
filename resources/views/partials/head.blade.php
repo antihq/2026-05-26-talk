@@ -7,7 +7,7 @@
     {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }}
 </title>
 
-<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon.png" type="image/png">
 <link rel="manifest" href="{{ url('/manifest') }}">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
