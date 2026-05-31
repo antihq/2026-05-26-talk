@@ -146,7 +146,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         </flux:button>
     </div>
 
-    <div class="sticky bottom-0 bg-white dark:bg-zinc-900 py-4 border-t border-zinc-950/5 dark:border-white/5">
+    <div class="sticky bottom-4 bg-white dark:bg-zinc-900">
         <div class="flex items-center gap-x-3">
             <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
         </div>
