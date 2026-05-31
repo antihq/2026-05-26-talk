@@ -166,5 +166,3 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         </form>
     </div>
 </div>
-
-
