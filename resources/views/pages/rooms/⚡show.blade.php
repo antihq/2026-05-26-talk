@@ -161,7 +161,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     <div class="sticky bottom-0 pb-4 pt-2 bg-white dark:bg-zinc-900 -mb-4">
         <div class="flex items-center gap-x-3">
             <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
-            <flux:button :href="route('rooms.index')" size="xs" variant="filled" wire:navigate>switch room</flux:button>
+            <flux:button :href="route('rooms.index')" size="xs" variant="filled" wire:navigate x-on:click="$wire.absent()">switch room</flux:button>
         </div>
 
         <form wire:submit="sendMessage" class="mt-2">
