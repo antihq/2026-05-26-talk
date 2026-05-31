@@ -119,21 +119,21 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                 'flex flex-col items-end' => $message->user_id === auth()->id(),
             ])>
                 @if (!$message->isThreaded)
-                <div class="flex items-center gap-x-3">
-                    @if ($message->user_id === auth()->id())
-                        <time class="lowercase"
-                              datetime="{{ $message->created_at->toISOString() }}"
-                              x-text="localTime($el.getAttribute('datetime'))"
-                        >{{ $message->created_at->format('g:i A') }}</time>
-                        <p class="font-semibold">{{ $message->user->name }}</p>
-                    @else
-                        <p class="font-semibold">{{ $message->user->name }}</p>
-                        <time class="lowercase"
-                              datetime="{{ $message->created_at->toISOString() }}"
-                              x-text="localTime($el.getAttribute('datetime'))"
-                        >{{ $message->created_at->format('g:i A') }}</time>
-                    @endif
-                </div>
+                    <div class="flex items-center gap-x-3">
+                        @if ($message->user_id === auth()->id())
+                            <time class="lowercase"
+                                  datetime="{{ $message->created_at->toISOString() }}"
+                                  x-text="localTime($el.getAttribute('datetime'))"
+                            >{{ $message->created_at->format('g:i A') }}</time>
+                            <p class="font-semibold">{{ $message->user->name }}</p>
+                        @else
+                            <p class="font-semibold">{{ $message->user->name }}</p>
+                            <time class="lowercase"
+                                  datetime="{{ $message->created_at->toISOString() }}"
+                                  x-text="localTime($el.getAttribute('datetime'))"
+                            >{{ $message->created_at->format('g:i A') }}</time>
+                        @endif
+                    </div>
                 @endif
                 <p>{{ $message->body }}</p>
             </li>

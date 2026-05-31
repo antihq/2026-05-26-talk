@@ -160,3 +160,101 @@ test('show page displays sent messages', function () {
         ->test('pages::rooms.show', ['room' => $room])
         ->assertSee('Hello from the past');
 });
+
+test('consecutive messages from same user within 5 minutes are threaded', function () {
+    $user = User::factory()->create(['name' => 'Alice']);
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => 'First',
+        'created_at' => now()->subMinutes(4),
+    ]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => 'Second',
+        'created_at' => now()->subMinutes(3),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    $component->assertSee('First')->assertSee('Second');
+    expect(substr_count($component->html(), 'Alice'))->toBe(1);
+});
+
+test('messages from different users are not threaded', function () {
+    $alice = User::factory()->create(['name' => 'Alice']);
+    $bob = User::factory()->create(['name' => 'Bob']);
+    $team = $alice->currentTeam;
+    $team->members()->attach($bob, ['role' => TeamRole::Member->value]);
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $alice->id,
+        'body' => 'Hello from A',
+        'created_at' => now()->subMinutes(4),
+    ]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $bob->id,
+        'body' => 'Hello from B',
+        'created_at' => now()->subMinutes(3),
+    ]);
+
+    $component = Livewire::actingAs($alice)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    $component->assertSee('Hello from A')->assertSee('Hello from B');
+    expect(substr_count($component->html(), 'Alice'))->toBe(1);
+    expect(substr_count($component->html(), 'Bob'))->toBe(1);
+});
+
+test('consecutive messages from same user beyond 5 minutes are not threaded', function () {
+    $user = User::factory()->create(['name' => 'Alice']);
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => 'First',
+        'created_at' => now()->subMinutes(10),
+    ]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => 'Second',
+        'created_at' => now()->subMinutes(3),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    expect(substr_count($component->html(), 'Alice'))->toBe(2);
+});
+
+test('first message is never threaded', function () {
+    $user = User::factory()->create(['name' => 'Alice']);
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => 'Lonely message',
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    $component->assertSee('Lonely message');
+    expect(substr_count($component->html(), 'Alice'))->toBe(1);
+});
