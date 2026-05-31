@@ -3,6 +3,7 @@
 use App\Models\Message;
 use App\Models\Room;
 use App\Notifications\NewMessage;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -21,6 +22,8 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
     public function getMessagesProperty()
     {
+        Cache::put("room:{$this->room->id}:presence:" . auth()->id(), true, 60);
+
         $messages = $this->room->messages()
             ->with('user')
             ->latest()
@@ -53,7 +56,8 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
         $members = $this->room->team->members()
             ->where('user_id', '!=', auth()->id())
-            ->get();
+            ->get()
+            ->filter(fn ($member) => !Cache::has("room:{$this->room->id}:presence:{$member->id}"));
 
         Notification::send($members, new NewMessage(
             room: $this->room,

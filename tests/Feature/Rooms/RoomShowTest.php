@@ -129,6 +129,26 @@ test('sending a message does not notify the sender', function () {
     Notification::assertNotSentTo($sender, NewMessage::class);
 });
 
+test('does not notify user currently viewing the room', function () {
+    $sender = User::factory()->create();
+    $viewer = User::factory()->create();
+    $team = $sender->currentTeam;
+    $team->members()->attach($viewer, ['role' => TeamRole::Member->value]);
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Cache::put("room:{$room->id}:presence:{$viewer->id}", true, 60);
+
+    Notification::fake();
+
+    Livewire::actingAs($sender)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('body', 'Hello!')
+        ->call('sendMessage')
+        ->assertHasNoErrors();
+
+    Notification::assertNotSentTo($viewer, NewMessage::class);
+});
+
 test('message sender name is displayed', function () {
     $user = User::factory()->create(['name' => 'Alice']);
     $team = $user->currentTeam;
