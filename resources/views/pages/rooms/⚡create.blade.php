@@ -31,18 +31,17 @@ new #[Layout('layouts.app'), Title('Create Room')] class extends Component
 }; ?>
 
 <div>
-    <h1>Create a new room</h1>
+    <flux:heading level="1" class="lowercase">Create a new room</flux:heading>
 
-    <form wire:submit="create">
+    <form wire:submit="create" class="mt-2">
         <flux:field>
-            <flux:label>Room name</flux:label>
+            <flux:label class="lowercase">Room name</flux:label>
             <flux:input wire:model="name" type="text" required autofocus />
             <flux:error name="name" />
         </flux:field>
 
-        <div>
-            <flux:button type="submit">Create room</flux:button>
-            <a href="{{ route('rooms.index', ['current_team' => auth()->user()->currentTeam->slug]) }}" wire:navigate>Cancel</a>
+        <div class="mt-4">
+            <flux:button type="submit" variant="primary" color="lime" class="lowercase">Create room</flux:button>
         </div>
     </form>
 </div>

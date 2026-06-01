@@ -162,6 +162,9 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         <div class="flex items-center gap-x-3">
             <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
             <flux:button :href="route('rooms.index')" size="xs" variant="filled" wire:navigate x-on:click="$wire.absent()">switch room</flux:button>
+            @can('update', $room)
+                <flux:link href="{{ route('rooms.edit', ['current_team' => auth()->user()->currentTeam->slug, 'room' => $room]) }}" wire:navigate x-on:click="$wire.absent()">edit</flux:link>
+            @endcan
         </div>
 
         <form wire:submit="sendMessage" class="mt-2">

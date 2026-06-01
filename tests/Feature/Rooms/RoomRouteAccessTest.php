@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Room;
 use App\Models\Team;
 use App\Models\User;
 
@@ -25,6 +26,15 @@ test('guests are redirected to login when accessing a room', function () {
         ->assertRedirect(route('login'));
 });
 
+test('guests are redirected to login when accessing room edit', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = $team->rooms()->create(['name' => 'Test', 'created_by' => $user->id]);
+
+    $this->get(route('rooms.edit', ['current_team' => $team->slug, 'room' => $room]))
+        ->assertRedirect(route('login'));
+});
+
 test('authenticated users can visit rooms index', function () {
     $user = User::factory()->create();
 
@@ -38,6 +48,16 @@ test('authenticated users can visit rooms create page', function () {
 
     $this->actingAs($user)
         ->get(route('rooms.create'))
+        ->assertOk();
+});
+
+test('authenticated users can visit rooms edit page', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $this->actingAs($user)
+        ->get(route('rooms.edit', ['current_team' => $team->slug, 'room' => $room]))
         ->assertOk();
 });
 
@@ -58,6 +78,16 @@ test('user gets 403 when accessing a room from another team', function () {
 
     $this->actingAs($user)
         ->get(route('rooms.show', ['room' => $room]))
+        ->assertForbidden();
+});
+
+test('user gets 403 when accessing room edit from another team', function () {
+    $user = User::factory()->create();
+    $otherTeam = Team::factory()->create();
+    $room = Room::factory()->create(['team_id' => $otherTeam->id]);
+
+    $this->actingAs($user)
+        ->get(route('rooms.edit', ['current_team' => $otherTeam->slug, 'room' => $room]))
         ->assertForbidden();
 });
 

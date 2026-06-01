@@ -26,6 +26,12 @@ class RoomPolicy
         return $role !== null && $role->isAtLeast(TeamRole::Admin);
     }
 
+    public function update(User $user, Room $room): bool
+    {
+        return $user->belongsToTeam($room->team)
+            && $user->teamRole($room->team)?->isAtLeast(TeamRole::Admin);
+    }
+
     public function delete(User $user, Room $room): bool
     {
         return $user->belongsToTeam($room->team)

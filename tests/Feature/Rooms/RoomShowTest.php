@@ -19,6 +19,29 @@ test('user can view a room', function () {
         ->assertOk();
 });
 
+test('show page shows edit link for owners', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->assertSee('edit');
+});
+
+test('show page hides edit link for members', function () {
+    $owner = User::factory()->create();
+    $member = User::factory()->create();
+    $team = $owner->currentTeam;
+    $team->members()->attach($member, ['role' => TeamRole::Member->value]);
+    $member->switchTeam($team);
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Livewire::actingAs($member)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->assertDontSee('edit');
+});
+
 test('user cannot view a room from another team', function () {
     $user = User::factory()->create();
     $otherTeam = Team::factory()->create();
