@@ -2,6 +2,7 @@
 
 use App\Models\Message;
 use App\Models\Room;
+use App\Models\RoomRead;
 use App\Notifications\NewMessage;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
@@ -19,11 +20,23 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     public function mount(): void
     {
         $this->authorize('view', $this->room);
+
+        $this->markAsRead();
+    }
+
+    private function markAsRead(): void
+    {
+        RoomRead::updateOrCreate(
+            ['user_id' => auth()->id(), 'room_id' => $this->room->id],
+            ['last_read_at' => now()],
+        );
     }
 
     public function getMessagesProperty()
     {
         Cache::put("room:{$this->room->id}:presence:" . auth()->id(), true, 60);
+
+        $this->markAsRead();
 
         $messages = $this->room->messages()
             ->with('user')
@@ -86,6 +99,8 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         nearBottom: true,
 
         init() {
+            navigator.clearAppBadge?.();
+
             this.scrollToBottom()
             this.setupScrollDetector()
 

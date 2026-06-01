@@ -44,7 +44,15 @@ self.addEventListener('push', function (event) {
     }
 
     event.waitUntil(
-        self.registration.showNotification(title, options)
+        self.registration.showNotification(title, options).then(() => {
+            if (typeof data.notification?.data?.unread_count === 'number') {
+                self.clients.matchAll().then(clients => {
+                    clients.forEach(client => {
+                        client.postMessage({ type: 'update-badge', count: data.notification.data.unread_count });
+                    });
+                });
+            }
+        })
     );
 });
 
@@ -57,6 +65,7 @@ self.addEventListener('notificationclick', function (event) {
         clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (windowClients) {
             for (const client of windowClients) {
                 if (client.url === url && 'focus' in client) {
+                    client.postMessage({ type: 'clear-badge' });
                     return client.focus();
                 }
             }

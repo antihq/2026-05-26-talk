@@ -34,10 +34,17 @@ class NewMessage extends Notification implements ShouldQueue
             'room' => $this->room,
         ]);
 
+        $teamId = $team?->id ?? $this->room->team_id;
+
+        $unreadCount = Room::forTeam($teamId)
+            ->unreadFor($notifiable)
+            ->count();
+
         return (new DeclarativeWebPushMessage)
             ->title('#'.$this->room->name)
             ->body($this->sender->name.': '.$this->body)
             ->icon('/favicon.ico')
+            ->data(['unread_count' => $unreadCount])
             ->action('Open room', 'open_room', $url)
             ->navigate($url);
     }

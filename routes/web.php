@@ -6,6 +6,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'pages::home')->name('home')->middleware('guest');
 
+Route::get('/sw.js', function () {
+    return response()
+        ->make(file_get_contents(resource_path('js/sw.js')))
+        ->header('Content-Type', 'application/javascript')
+        ->header('Cache-Control', 'no-cache, must-revalidate');
+});
+
 Route::get('/manifest', function () {
     return response()->view('manifest-json')->header('Content-Type', 'application/json');
 });
