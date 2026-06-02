@@ -3,7 +3,7 @@
 use App\Enums\TeamRole;
 use App\Models\Message;
 use App\Models\Room;
-use App\Models\RoomRead;
+use App\Models\RoomMembership;
 use App\Models\Team;
 use App\Models\User;
 use Livewire\Livewire;
@@ -18,7 +18,7 @@ test('room with no messages is not unread', function () {
     $room = $team->rooms()
         ->withCount('messages')
         ->withMax('messages', 'created_at')
-        ->with(['roomReads' => fn ($q) => $q->where('user_id', $user->id)])
+        ->with(['roomMemberships' => fn ($q) => $q->where('user_id', $user->id)])
         ->find($room->id);
 
     expect($room->isUnreadFor($user))->toBeFalse();
@@ -33,7 +33,7 @@ test('room with messages and no read record is unread', function () {
     $room = $team->rooms()
         ->withCount('messages')
         ->withMax('messages', 'created_at')
-        ->with(['roomReads' => fn ($q) => $q->where('user_id', $user->id)])
+        ->with(['roomMemberships' => fn ($q) => $q->where('user_id', $user->id)])
         ->find($room->id);
 
     expect($room->isUnreadFor($user))->toBeTrue();
@@ -44,12 +44,12 @@ test('room with messages and null last_read_at is unread', function () {
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
     Message::factory()->create(['room_id' => $room->id, 'user_id' => $user->id]);
-    RoomRead::create(['user_id' => $user->id, 'room_id' => $room->id, 'last_read_at' => null]);
+    RoomMembership::create(['user_id' => $user->id, 'room_id' => $room->id, 'last_read_at' => null]);
 
     $room = $team->rooms()
         ->withCount('messages')
         ->withMax('messages', 'created_at')
-        ->with(['roomReads' => fn ($q) => $q->where('user_id', $user->id)])
+        ->with(['roomMemberships' => fn ($q) => $q->where('user_id', $user->id)])
         ->find($room->id);
 
     expect($room->isUnreadFor($user))->toBeTrue();
@@ -64,7 +64,7 @@ test('room with messages newer than last_read_at is unread', function () {
         'user_id' => $user->id,
         'created_at' => now(),
     ]);
-    RoomRead::create([
+    RoomMembership::create([
         'user_id' => $user->id,
         'room_id' => $room->id,
         'last_read_at' => $message->created_at->clone()->subMinute(),
@@ -73,7 +73,7 @@ test('room with messages newer than last_read_at is unread', function () {
     $room = $team->rooms()
         ->withCount('messages')
         ->withMax('messages', 'created_at')
-        ->with(['roomReads' => fn ($q) => $q->where('user_id', $user->id)])
+        ->with(['roomMemberships' => fn ($q) => $q->where('user_id', $user->id)])
         ->find($room->id);
 
     expect($room->isUnreadFor($user))->toBeTrue();
@@ -88,7 +88,7 @@ test('room with messages older than last_read_at is not unread', function () {
         'user_id' => $user->id,
         'created_at' => now()->subHour(),
     ]);
-    RoomRead::create([
+    RoomMembership::create([
         'user_id' => $user->id,
         'room_id' => $room->id,
         'last_read_at' => $message->created_at->clone()->addMinute(),
@@ -97,7 +97,7 @@ test('room with messages older than last_read_at is not unread', function () {
     $room = $team->rooms()
         ->withCount('messages')
         ->withMax('messages', 'created_at')
-        ->with(['roomReads' => fn ($q) => $q->where('user_id', $user->id)])
+        ->with(['roomMemberships' => fn ($q) => $q->where('user_id', $user->id)])
         ->find($room->id);
 
     expect($room->isUnreadFor($user))->toBeFalse();
@@ -124,7 +124,7 @@ test('unread scope counts rooms with stale read record', function () {
         'room_id' => $room->id,
         'user_id' => $user->id,
     ]);
-    RoomRead::create([
+    RoomMembership::create([
         'user_id' => $user->id,
         'room_id' => $room->id,
         'last_read_at' => $message->created_at->clone()->subSecond(),
@@ -143,7 +143,7 @@ test('unread scope excludes rooms with current read record', function () {
         'room_id' => $room->id,
         'user_id' => $user->id,
     ]);
-    RoomRead::create([
+    RoomMembership::create([
         'user_id' => $user->id,
         'room_id' => $room->id,
         'last_read_at' => $message->created_at->clone()->addSecond(),
@@ -202,9 +202,9 @@ test('for team scope filters by team id', function () {
     expect($rooms->first()->id)->toBe($room->id);
 });
 
-// RoomRead upsert on viewing a room
+// RoomMembership upsert on viewing a room
 
-test('viewing a room creates a room read record', function () {
+test('viewing a room creates a room membership record', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
@@ -212,17 +212,17 @@ test('viewing a room creates a room read record', function () {
     Livewire::actingAs($user)
         ->test('pages::rooms.show', ['room' => $room]);
 
-    $this->assertDatabaseHas('room_reads', [
+    $this->assertDatabaseHas('room_memberships', [
         'user_id' => $user->id,
         'room_id' => $room->id,
     ]);
 });
 
-test('viewing a room updates existing room read record', function () {
+test('viewing a room updates existing room membership record', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
-    RoomRead::create([
+    RoomMembership::create([
         'user_id' => $user->id,
         'room_id' => $room->id,
         'last_read_at' => now()->subDay(),
@@ -231,7 +231,7 @@ test('viewing a room updates existing room read record', function () {
     Livewire::actingAs($user)
         ->test('pages::rooms.show', ['room' => $room]);
 
-    expect(RoomRead::where('user_id', $user->id)->where('room_id', $room->id)->count())->toBe(1);
+    expect(RoomMembership::where('user_id', $user->id)->where('room_id', $room->id)->count())->toBe(1);
 });
 
 test('viewing a room sets last_read_at', function () {
@@ -242,7 +242,7 @@ test('viewing a room sets last_read_at', function () {
     Livewire::actingAs($user)
         ->test('pages::rooms.show', ['room' => $room]);
 
-    $read = RoomRead::where('user_id', $user->id)->where('room_id', $room->id)->first();
+    $read = RoomMembership::where('user_id', $user->id)->where('room_id', $room->id)->first();
     expect($read->last_read_at)->not->toBeNull();
     expect($read->last_read_at->diffInSeconds(now()))->toBeLessThan(5);
 });
@@ -265,7 +265,7 @@ test('index hides unread dot for read room', function () {
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id, 'name' => 'General']);
     Message::factory()->create(['room_id' => $room->id, 'user_id' => $user->id]);
-    RoomRead::create([
+    RoomMembership::create([
         'user_id' => $user->id,
         'room_id' => $room->id,
         'last_read_at' => now(),
@@ -296,7 +296,7 @@ test('isUnreadFor does not mix read state between users', function () {
     $room = Room::factory()->create(['team_id' => $team->id]);
     Message::factory()->create(['room_id' => $room->id, 'user_id' => $userA->id]);
 
-    RoomRead::create([
+    RoomMembership::create([
         'user_id' => $userA->id,
         'room_id' => $room->id,
         'last_read_at' => now(),
@@ -305,14 +305,14 @@ test('isUnreadFor does not mix read state between users', function () {
     $room = $team->rooms()
         ->withCount('messages')
         ->withMax('messages', 'created_at')
-        ->with(['roomReads' => fn ($q) => $q->where('user_id', $userA->id)])
+        ->with(['roomMemberships' => fn ($q) => $q->where('user_id', $userA->id)])
         ->find($room->id);
 
     expect($room->isUnreadFor($userA))->toBeFalse();
     expect($team->rooms()
         ->withCount('messages')
         ->withMax('messages', 'created_at')
-        ->with(['roomReads' => fn ($q) => $q->where('user_id', $userB->id)])
+        ->with(['roomMemberships' => fn ($q) => $q->where('user_id', $userB->id)])
         ->find($room->id)
         ->isUnreadFor($userB)
     )->toBeTrue();
@@ -344,6 +344,201 @@ test('mount marks room as read', function () {
     $component = Livewire::actingAs($user)
         ->test('pages::rooms.show', ['room' => $room]);
 
-    $read = RoomRead::where('user_id', $user->id)->where('room_id', $room->id)->first();
+    $read = RoomMembership::where('user_id', $user->id)->where('room_id', $room->id)->first();
     expect($read->last_read_at)->not->toBeNull();
+});
+
+// RoomMembership Connectable
+
+test('present creates a membership record with connections', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $membership = RoomMembership::present($user, $room);
+
+    expect($membership->connections)->toBe(1);
+    expect($membership->connected_at)->not->toBeNull();
+    expect($membership->last_read_at)->not->toBeNull();
+});
+
+test('present increments connections if already connected', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    RoomMembership::present($user, $room);
+    RoomMembership::present($user, $room);
+
+    $membership = RoomMembership::where('user_id', $user->id)->where('room_id', $room->id)->first();
+    expect($membership->connections)->toBe(2);
+});
+
+test('present resets connections if connection is stale', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $membership = RoomMembership::present($user, $room);
+    $this->travel(RoomMembership::CONNECTION_TTL + 1)->seconds();
+
+    RoomMembership::present($user, $room);
+
+    $membership->refresh();
+    expect($membership->connections)->toBe(1);
+});
+
+test('present disconnects user from other rooms', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $roomA = Room::factory()->create(['team_id' => $team->id]);
+    $roomB = Room::factory()->create(['team_id' => $team->id]);
+
+    RoomMembership::present($user, $roomA);
+    RoomMembership::present($user, $roomB);
+
+    $roomAconnection = RoomMembership::where('user_id', $user->id)->where('room_id', $roomA->id)->first();
+    expect($roomAconnection->isConnected())->toBeFalse();
+    expect($roomAconnection->connections)->toBe(0);
+});
+
+test('connected scope includes only memberships within TTL', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $roomA = Room::factory()->create(['team_id' => $team->id]);
+    $roomB = Room::factory()->create(['team_id' => $team->id]);
+
+    RoomMembership::present($user, $roomA);
+
+    $this->travel(RoomMembership::CONNECTION_TTL + 1)->seconds();
+
+    RoomMembership::present($user, $roomB);
+
+    $connected = RoomMembership::connected()->get();
+    expect($connected)->toHaveCount(1);
+    expect($connected->first()->room_id)->toBe($roomB->id);
+});
+
+test('disconnected scope includes stale memberships', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    RoomMembership::present($user, $room);
+
+    $this->travel(RoomMembership::CONNECTION_TTL + 1)->seconds();
+
+    $disconnected = RoomMembership::disconnected()->get();
+    expect($disconnected->pluck('room_id'))->toContain($room->id);
+});
+
+test('disconnected decrements connections', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $membership = RoomMembership::present($user, $room);
+    $membership->markDisconnected();
+
+    expect($membership->fresh()->connections)->toBe(0);
+    expect($membership->fresh()->connected_at)->toBeNull();
+});
+
+test('disconnected only decrements when multiple tabs open', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $membership = RoomMembership::present($user, $room);
+    RoomMembership::present($user, $room);
+
+    $membership->fresh()->markDisconnected();
+
+    expect($membership->fresh()->connections)->toBe(1);
+    expect($membership->fresh()->connected_at)->not->toBeNull();
+});
+
+test('refreshConnection refreshes stale connection', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $membership = RoomMembership::present($user, $room);
+
+    $this->travel(RoomMembership::CONNECTION_TTL + 1)->seconds();
+
+    $membership->refreshConnection();
+    expect($membership->fresh()->isConnected())->toBeTrue();
+});
+
+test('refreshConnection does not increment when already connected', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $membership = RoomMembership::present($user, $room);
+
+    $connectionsBefore = $membership->fresh()->connections;
+
+    $membership->refreshConnection();
+
+    expect($membership->fresh()->connections)->toBe($connectionsBefore);
+});
+
+test('markDisconnected when already disconnected stays at zero', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $membership = RoomMembership::present($user, $room);
+    $membership->markDisconnected();
+
+    expect($membership->fresh()->connections)->toBe(0);
+    expect($membership->fresh()->connected_at)->toBeNull();
+
+    $membership->markDisconnected();
+
+    expect($membership->fresh()->connections)->toBe(0);
+    expect($membership->fresh()->connected_at)->toBeNull();
+});
+
+test('markConnected increments when already connected', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $membership = RoomMembership::present($user, $room);
+    $membership->markConnected();
+
+    expect($membership->fresh()->connections)->toBe(2);
+});
+
+test('markConnected resets to 1 when stale', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $membership = RoomMembership::present($user, $room);
+
+    $this->travel(RoomMembership::CONNECTION_TTL + 1)->seconds();
+
+    $membership->markConnected();
+    expect($membership->fresh()->connections)->toBe(1);
+});
+
+test('disconnectAll resets all connections', function () {
+    $userA = User::factory()->create();
+    $userB = User::factory()->create();
+    $team = $userA->currentTeam;
+    $team->members()->attach($userB, ['role' => TeamRole::Member->value]);
+    $roomA = Room::factory()->create(['team_id' => $team->id]);
+    $roomB = Room::factory()->create(['team_id' => $team->id]);
+
+    RoomMembership::present($userA, $roomA);
+    RoomMembership::present($userA, $roomB);
+    RoomMembership::present($userB, $roomA);
+
+    RoomMembership::disconnectAll();
+
+    expect(RoomMembership::connected()->count())->toBe(0);
 });

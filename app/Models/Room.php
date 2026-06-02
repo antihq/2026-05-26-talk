@@ -29,9 +29,9 @@ class Room extends Model
         return $this->hasMany(Message::class);
     }
 
-    public function roomReads(): HasMany
+    public function roomMemberships(): HasMany
     {
-        return $this->hasMany(RoomRead::class);
+        return $this->hasMany(RoomMembership::class);
     }
 
     public function isUnreadFor(User $user): bool
@@ -40,16 +40,16 @@ class Room extends Model
             return false;
         }
 
-        $read = $this->roomReads
+        $membership = $this->roomMemberships
             ->firstWhere('user_id', $user->id);
 
-        if (!$read || !$read->last_read_at) {
+        if (!$membership || !$membership->last_read_at) {
             return true;
         }
 
         $latestMessageAt = $this->messages_max_created_at;
 
-        return $latestMessageAt && $read->last_read_at->lessThan($latestMessageAt);
+        return $latestMessageAt && $membership->last_read_at->lessThan($latestMessageAt);
     }
 
     public function scopeUnreadFor(Builder $query, User $user): void
@@ -57,8 +57,8 @@ class Room extends Model
         $query
             ->whereHas('messages')
             ->where(function (Builder $q) use ($user) {
-                $q->whereDoesntHave('roomReads', fn ($q) => $q->where('user_id', $user->id))
-                  ->orWhereHas('roomReads', fn ($q) => $q->where('user_id', $user->id)
+                $q->whereDoesntHave('roomMemberships', fn ($q) => $q->where('user_id', $user->id))
+                  ->orWhereHas('roomMemberships', fn ($q) => $q->where('user_id', $user->id)
                       ->where(function ($q) {
                           $q->whereNull('last_read_at')
                             ->orWhere('last_read_at', '<', Message::selectRaw('max(created_at)')

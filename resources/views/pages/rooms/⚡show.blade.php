@@ -4,9 +4,8 @@ use App\Events\MessageSent;
 use App\Events\UnreadRoomUpdated;
 use App\Models\Message;
 use App\Models\Room;
-use App\Models\RoomRead;
+use App\Models\RoomMembership;
 use App\Notifications\NewMessage;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -24,54 +23,13 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     {
         $this->authorize('view', $this->room);
 
-        $this->clearPresenceForOtherRooms();
-        $this->markAsRead();
-        $this->present();
-    }
-
-    private function clearPresenceForOtherRooms(): void
-    {
-        $otherRoomIds = auth()->user()->currentTeam->rooms()
-            ->where('id', '!=', $this->room->id)
-            ->pluck('id');
-
-        foreach ($otherRoomIds as $roomId) {
-            Cache::forget("room:{$roomId}:presence:" . auth()->id());
-        }
-    }
-
-    private function markAsRead(): void
-    {
-        RoomRead::updateOrCreate(
-            ['user_id' => auth()->id(), 'room_id' => $this->room->id],
-            ['last_read_at' => now()],
-        );
+        RoomMembership::present(auth()->user(), $this->room);
     }
 
     #[On('echo-private:room.{room.id},MessageSent')]
     public function refreshMessages(): void
     {
         //
-    }
-
-    #[On('echo-presence:room.{room.id},here')]
-    public function presenceHere($users): void
-    {
-        foreach ($users as $user) {
-            Cache::put("room:{$this->room->id}:presence:{$user['id']}", true, 120);
-        }
-    }
-
-    #[On('echo-presence:room.{room.id},joining')]
-    public function presenceJoining($user): void
-    {
-        Cache::put("room:{$this->room->id}:presence:{$user['id']}", true, 120);
-    }
-
-    #[On('echo-presence:room.{room.id},leaving')]
-    public function presenceLeaving($user): void
-    {
-        Cache::forget("room:{$this->room->id}:presence:{$user['id']}");
     }
 
     public function getMessagesProperty()
@@ -97,13 +55,31 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     #[Renderless]
     public function present(): void
     {
-        Cache::put("room:{$this->room->id}:presence:" . auth()->id(), true, 120);
+        $membership = RoomMembership::where('user_id', auth()->id())
+            ->where('room_id', $this->room->id)
+            ->first();
+
+        $membership?->markConnected();
+    }
+
+    #[Renderless]
+    public function refresh(): void
+    {
+        $membership = RoomMembership::where('user_id', auth()->id())
+            ->where('room_id', $this->room->id)
+            ->first();
+
+        $membership?->refreshConnection();
     }
 
     #[Renderless]
     public function absent(): void
     {
-        Cache::forget("room:{$this->room->id}:presence:" . auth()->id());
+        $membership = RoomMembership::where('user_id', auth()->id())
+            ->where('room_id', $this->room->id)
+            ->first();
+
+        $membership?->markDisconnected();
     }
 
     public function sendMessage(): void
@@ -120,12 +96,16 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
         broadcast(new MessageSent($message));
 
-        $members = $this->room->team->members()
-            ->where('user_id', '!=', auth()->id())
-            ->get()
-            ->filter(fn ($member) => !Cache::has("room:{$this->room->id}:presence:{$member->id}"));
+        $connectedUserIds = RoomMembership::where('room_id', $this->room->id)
+            ->connected()
+            ->pluck('user_id');
 
-        Notification::send($members, new NewMessage(
+        $disconnectedMembers = $this->room->team->members()
+            ->where('user_id', '!=', auth()->id())
+            ->whereNotIn('user_id', $connectedUserIds)
+            ->get();
+
+        Notification::send($disconnectedMembers, new NewMessage(
             room: $this->room,
             sender: auth()->user(),
             body: $message->body,
@@ -141,52 +121,52 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     }
 }; ?>
 
-<div
-    class="max-w-2xl"
-    x-on:visibilitychange.window="document.visibilityState === 'hidden' ? $wire.absent() : $wire.present()"
-    x-data="{
-        nearBottom: true,
+    <div
+        class="max-w-2xl"
+        data-room-id="{{ $room->id }}"
+        x-data="{
+            nearBottom: true,
 
-        init() {
-            navigator.clearAppBadge?.();
+            init() {
+                navigator.clearAppBadge?.();
 
-            this.scrollToBottom()
-            this.setupScrollDetector()
-
-            window.addEventListener('message-sent', () => {
-                this.nearBottom = true
                 this.scrollToBottom()
-            })
-        },
+                this.setupScrollDetector()
 
-        setupScrollDetector() {
-            window.addEventListener('scroll', () => {
-                this.nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 100
-            }, { passive: true })
-        },
+                window.addEventListener('message-sent', () => {
+                    this.nearBottom = true
+                    this.scrollToBottom()
+                })
+            },
 
-        scrollToBottom() {
-            this.$nextTick(() => {
-                window.scrollTo(0, document.body.scrollHeight)
-            })
-        },
+            setupScrollDetector() {
+                window.addEventListener('scroll', () => {
+                    this.nearBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 100
+                }, { passive: true })
+            },
 
-        localTime(iso) {
-            const date = new Date(iso)
-            const now = new Date()
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-            const yesterday = new Date(today.getTime() - 86400000)
-            const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+            scrollToBottom() {
+                this.$nextTick(() => {
+                    window.scrollTo(0, document.body.scrollHeight)
+                })
+            },
 
-            let dayLabel
-            if (msgDay.getTime() === today.getTime()) dayLabel = 'today'
-            else if (msgDay.getTime() === yesterday.getTime()) dayLabel = 'yesterday'
-            else if (date.getFullYear() === now.getFullYear()) dayLabel = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(date)
-            else dayLabel = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
+            localTime(iso) {
+                const date = new Date(iso)
+                const now = new Date()
+                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+                const yesterday = new Date(today.getTime() - 86400000)
+                const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
 
-            return dayLabel + ' at ' + new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(date)
-        }
-    }"
+                let dayLabel
+                if (msgDay.getTime() === today.getTime()) dayLabel = 'today'
+                else if (msgDay.getTime() === yesterday.getTime()) dayLabel = 'yesterday'
+                else if (date.getFullYear() === now.getFullYear()) dayLabel = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(date)
+                else dayLabel = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(date)
+
+                return dayLabel + ' at ' + new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(date)
+            }
+        }"
 >
     <ul role="list">
         @foreach ($this->messages as $message)
@@ -231,9 +211,9 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     <div class="sticky bottom-0 pb-4 pt-2 bg-white dark:bg-zinc-900 -mb-4">
         <div class="flex items-center gap-x-3">
             <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
-            <flux:button :href="route('rooms.index')" size="xs" variant="filled" wire:navigate x-on:click="$wire.absent()">switch room</flux:button>
+            <flux:button :href="route('rooms.index')" size="xs" variant="filled" wire:navigate>switch room</flux:button>
             @can('update', $room)
-                <flux:link href="{{ route('rooms.edit', ['current_team' => auth()->user()->currentTeam->slug, 'room' => $room]) }}" wire:navigate x-on:click="$wire.absent()">edit</flux:link>
+                <flux:link href="{{ route('rooms.edit', ['current_team' => auth()->user()->currentTeam->slug, 'room' => $room]) }}" wire:navigate>edit</flux:link>
             @endcan
         </div>
 
@@ -247,3 +227,77 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         </form>
     </div>
 </div>
+
+<script>
+(() => {
+    const roomId = $wire.$el.dataset.roomId
+    let refreshTimer = null
+    let wasVisible = true
+
+    function startRefreshTimer() {
+        if (refreshTimer) return
+        refreshTimer = setInterval(() => $wire.refresh(), 50000)
+    }
+
+    function stopRefreshTimer() {
+        clearInterval(refreshTimer)
+        refreshTimer = null
+    }
+
+    function absentFetch() {
+        fetch('/presence/' + roomId + '/absent', {
+            method: 'POST',
+            keepalive: true,
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                'Content-Type': 'application/json',
+            },
+        })
+    }
+
+    const pusher = Echo.connector.pusher
+
+    if (pusher.connection.state === 'connected') {
+        $wire.present()
+        startRefreshTimer()
+    }
+
+    pusher.connection.bind('connected', () => {
+        $wire.present()
+        startRefreshTimer()
+    })
+
+    pusher.connection.bind('disconnected', () => {
+        stopRefreshTimer()
+        $wire.absent()
+    })
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            setTimeout(() => {
+                if (document.visibilityState === 'visible' && !wasVisible) {
+                    $wire.present()
+                    startRefreshTimer()
+                    wasVisible = true
+                }
+            }, 5000)
+        } else {
+            setTimeout(() => {
+                if (document.visibilityState !== 'visible' && wasVisible) {
+                    stopRefreshTimer()
+                    $wire.absent()
+                    wasVisible = false
+                }
+            }, 5000)
+        }
+    })
+
+    window.addEventListener('beforeunload', absentFetch)
+
+    const navigatingHandler = () => {
+        stopRefreshTimer()
+        absentFetch()
+    }
+    document.addEventListener('livewire:navigating', navigatingHandler)
+})()
+</script>

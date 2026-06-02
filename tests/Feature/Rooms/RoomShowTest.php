@@ -162,7 +162,7 @@ test('does not notify user currently viewing the room', function () {
     $team->members()->attach($viewer, ['role' => TeamRole::Member->value]);
     $room = Room::factory()->create(['team_id' => $team->id]);
 
-    Cache::put("room:{$room->id}:presence:{$viewer->id}", true, 60);
+    \App\Models\RoomMembership::present($viewer, $room);
 
     Notification::fake();
 
@@ -182,8 +182,6 @@ test('notifies disconnected team member', function () {
     $team->members()->attach($member, ['role' => TeamRole::Member->value]);
     $room = Room::factory()->create(['team_id' => $team->id]);
 
-    Cache::forget("room:{$room->id}:presence:{$member->id}");
-
     Notification::fake();
 
     Livewire::actingAs($sender)
@@ -202,8 +200,9 @@ test('notifies user whose presence has expired', function () {
     $team->members()->attach($viewer, ['role' => TeamRole::Member->value]);
     $room = Room::factory()->create(['team_id' => $team->id]);
 
-    Cache::put("room:{$room->id}:presence:{$viewer->id}", true, 60);
-    Cache::forget("room:{$room->id}:presence:{$viewer->id}");
+    \App\Models\RoomMembership::present($viewer, $room);
+
+    $this->travel(\App\Models\RoomMembership::CONNECTION_TTL + 1)->seconds();
 
     Notification::fake();
 
@@ -263,7 +262,7 @@ test('sending a message broadcasts UnreadRoomUpdated to each team member', funct
     Event::assertDispatchedTimes(UnreadRoomUpdated::class, 2);
 });
 
-test('presence cache key is set when viewing a room', function () {
+test('present sets the membership as connected', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
@@ -271,24 +270,24 @@ test('presence cache key is set when viewing a room', function () {
     Livewire::actingAs($user)
         ->test('pages::rooms.show', ['room' => $room]);
 
-    expect(Cache::has("room:{$room->id}:presence:{$user->id}"))->toBeTrue();
+    $membership = \App\Models\RoomMembership::where('user_id', $user->id)->where('room_id', $room->id)->first();
+    expect($membership->isConnected())->toBeTrue();
 });
 
-test('absent clears presence cache key', function () {
+test('absent marks the membership as disconnected', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
 
-    Livewire::actingAs($user)
+    $component = Livewire::actingAs($user)
         ->test('pages::rooms.show', ['room' => $room]);
 
-    expect(Cache::has("room:{$room->id}:presence:{$user->id}"))->toBeTrue();
+    $membership = \App\Models\RoomMembership::where('user_id', $user->id)->where('room_id', $room->id)->first();
+    expect($membership->isConnected())->toBeTrue();
 
-    Livewire::actingAs($user)
-        ->test('pages::rooms.show', ['room' => $room])
-        ->call('absent');
+    $component->call('absent');
 
-    expect(Cache::has("room:{$room->id}:presence:{$user->id}"))->toBeFalse();
+    expect($membership->fresh()->isConnected())->toBeFalse();
 });
 
 test('three consecutive messages from same user within 5 minutes are threaded', function () {

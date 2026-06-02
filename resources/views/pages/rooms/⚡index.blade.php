@@ -25,7 +25,7 @@ new #[Layout('layouts.app'), Title('Rooms')] class extends Component
         return auth()->user()->currentTeam->rooms()
             ->withCount('messages')
             ->withMax('messages', 'created_at')
-            ->with(['roomReads' => fn ($q) => $q->where('user_id', auth()->id())])
+            ->with(['roomMemberships' => fn ($q) => $q->where('user_id', auth()->id())])
             ->orderBy('name')
             ->get();
     }

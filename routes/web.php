@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\PresenceController;
 use App\Http\Controllers\WebPushController;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
@@ -29,6 +30,8 @@ Route::prefix('{current_team}')
 
 Route::middleware(['auth'])->group(function () {
     Route::livewire('invitations/{invitation}', 'pages::invitations.show')->name('invitations.show');
+
+    Route::post('/presence/{room}/absent', [PresenceController::class, 'absent'])->name('presence.absent');
 
     Route::post('/webpush/subscribe', [WebPushController::class, 'store'])->name('webpush.subscribe');
     Route::delete('/webpush/subscribe/{id}', [WebPushController::class, 'destroy'])->name('webpush.unsubscribe');

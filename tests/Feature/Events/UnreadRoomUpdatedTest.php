@@ -53,7 +53,7 @@ test('unread count excludes read rooms', function () {
     $roomB = Room::factory()->create(['team_id' => $team->id]);
     Message::factory()->create(['room_id' => $roomA->id, 'user_id' => $user->id]);
     Message::factory()->create(['room_id' => $roomB->id, 'user_id' => $user->id]);
-    \App\Models\RoomRead::create([
+    \App\Models\RoomMembership::create([
         'user_id' => $user->id,
         'room_id' => $roomA->id,
         'last_read_at' => now(),

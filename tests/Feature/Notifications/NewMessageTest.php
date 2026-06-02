@@ -2,7 +2,7 @@
 
 use App\Models\Message;
 use App\Models\Room;
-use App\Models\RoomRead;
+use App\Models\RoomMembership;
 use App\Models\User;
 use App\Notifications\NewMessage;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -98,7 +98,7 @@ test('toWebPush unread count excludes read rooms', function () {
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id, 'name' => 'General']);
     Message::factory()->create(['room_id' => $room->id, 'user_id' => $user->id]);
-    RoomRead::create([
+    RoomMembership::create([
         'user_id' => $user->id,
         'room_id' => $room->id,
         'last_read_at' => now(),
