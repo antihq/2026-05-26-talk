@@ -15,9 +15,27 @@ new #[Layout('layouts.app'), Title('Rooms')] class extends Component
             ->orderBy('name')
             ->get();
     }
+
+    public function getUnreadRoomsCountProperty()
+    {
+        return $this->rooms->filter(fn ($room) => $room->isUnreadFor(auth()->user()))->count();
+    }
 }; ?>
 
-<div class="flex flex-wrap items-center gap-x-3" wire:poll.5s>
+<div
+    class="flex flex-wrap items-center gap-x-3"
+    wire:poll.5s
+    x-data
+    x-init="
+        let updateBadge = count => {
+            if ('setAppBadge' in navigator) {
+                count > 0 ? navigator.setAppBadge(count) : navigator.clearAppBadge()
+            }
+        }
+        updateBadge($wire.unreadRoomsCount)
+        $wire.$watch('unreadRoomsCount', updateBadge)
+    "
+>
     <flux:heading level="1" class="lowercase">Rooms</flux:heading>
 
     <nav class="flex flex-wrap gap-x-3">
