@@ -350,31 +350,34 @@ test('mount marks room as read', function () {
 
 // RoomMembership Connectable
 
-test('present creates a membership record with connections', function () {
+test('present creates a membership record with connected_at', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
 
     $membership = RoomMembership::present($user, $room);
 
-    expect($membership->connections)->toBe(1);
     expect($membership->connected_at)->not->toBeNull();
     expect($membership->last_read_at)->not->toBeNull();
 });
 
-test('present increments connections if already connected', function () {
+test('present refreshes connected_at if already connected', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
 
-    RoomMembership::present($user, $room);
+    $first = RoomMembership::present($user, $room);
+    $original = $first->fresh()->connected_at;
+
+    $this->travel(5)->seconds();
+
     RoomMembership::present($user, $room);
 
     $membership = RoomMembership::where('user_id', $user->id)->where('room_id', $room->id)->first();
-    expect($membership->connections)->toBe(2);
+    expect($membership->connected_at->gt($original))->toBeTrue();
 });
 
-test('present resets connections if connection is stale', function () {
+test('present reconnects if connection is stale', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
@@ -385,7 +388,7 @@ test('present resets connections if connection is stale', function () {
     RoomMembership::present($user, $room);
 
     $membership->refresh();
-    expect($membership->connections)->toBe(1);
+    expect($membership->isConnected())->toBeTrue();
 });
 
 test('present disconnects user from other rooms', function () {
@@ -399,7 +402,6 @@ test('present disconnects user from other rooms', function () {
 
     $roomAconnection = RoomMembership::where('user_id', $user->id)->where('room_id', $roomA->id)->first();
     expect($roomAconnection->isConnected())->toBeFalse();
-    expect($roomAconnection->connections)->toBe(0);
 });
 
 test('connected scope includes only memberships within TTL', function () {
@@ -432,7 +434,7 @@ test('disconnected scope includes stale memberships', function () {
     expect($disconnected->pluck('room_id'))->toContain($room->id);
 });
 
-test('disconnected decrements connections', function () {
+test('markDisconnected sets connected_at to null', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
@@ -440,93 +442,40 @@ test('disconnected decrements connections', function () {
     $membership = RoomMembership::present($user, $room);
     $membership->markDisconnected();
 
-    expect($membership->fresh()->connections)->toBe(0);
     expect($membership->fresh()->connected_at)->toBeNull();
 });
 
-test('disconnected only decrements when multiple tabs open', function () {
+test('markDisconnected when already disconnected stays null', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
 
     $membership = RoomMembership::present($user, $room);
-    RoomMembership::present($user, $room);
+    $membership->markDisconnected();
 
-    $membership->fresh()->markDisconnected();
+    expect($membership->fresh()->connected_at)->toBeNull();
 
-    expect($membership->fresh()->connections)->toBe(1);
-    expect($membership->fresh()->connected_at)->not->toBeNull();
+    $membership->markDisconnected();
+
+    expect($membership->fresh()->connected_at)->toBeNull();
 });
 
-test('refreshConnection refreshes stale connection', function () {
+test('refreshConnection refreshes connected_at', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
 
     $membership = RoomMembership::present($user, $room);
 
-    $this->travel(RoomMembership::CONNECTION_TTL + 1)->seconds();
+    $this->travel(30)->seconds();
 
     $membership->refreshConnection();
+
     expect($membership->fresh()->isConnected())->toBeTrue();
+    expect($membership->fresh()->connected_at->diffInSeconds(now()))->toBeLessThan(5);
 });
 
-test('refreshConnection does not increment when already connected', function () {
-    $user = User::factory()->create();
-    $team = $user->currentTeam;
-    $room = Room::factory()->create(['team_id' => $team->id]);
-
-    $membership = RoomMembership::present($user, $room);
-
-    $connectionsBefore = $membership->fresh()->connections;
-
-    $membership->refreshConnection();
-
-    expect($membership->fresh()->connections)->toBe($connectionsBefore);
-});
-
-test('markDisconnected when already disconnected stays at zero', function () {
-    $user = User::factory()->create();
-    $team = $user->currentTeam;
-    $room = Room::factory()->create(['team_id' => $team->id]);
-
-    $membership = RoomMembership::present($user, $room);
-    $membership->markDisconnected();
-
-    expect($membership->fresh()->connections)->toBe(0);
-    expect($membership->fresh()->connected_at)->toBeNull();
-
-    $membership->markDisconnected();
-
-    expect($membership->fresh()->connections)->toBe(0);
-    expect($membership->fresh()->connected_at)->toBeNull();
-});
-
-test('markConnected increments when already connected', function () {
-    $user = User::factory()->create();
-    $team = $user->currentTeam;
-    $room = Room::factory()->create(['team_id' => $team->id]);
-
-    $membership = RoomMembership::present($user, $room);
-    $membership->markConnected();
-
-    expect($membership->fresh()->connections)->toBe(2);
-});
-
-test('markConnected resets to 1 when stale', function () {
-    $user = User::factory()->create();
-    $team = $user->currentTeam;
-    $room = Room::factory()->create(['team_id' => $team->id]);
-
-    $membership = RoomMembership::present($user, $room);
-
-    $this->travel(RoomMembership::CONNECTION_TTL + 1)->seconds();
-
-    $membership->markConnected();
-    expect($membership->fresh()->connections)->toBe(1);
-});
-
-test('disconnectAll resets all connections', function () {
+test('disconnectAll disconnects all memberships', function () {
     $userA = User::factory()->create();
     $userB = User::factory()->create();
     $team = $userA->currentTeam;

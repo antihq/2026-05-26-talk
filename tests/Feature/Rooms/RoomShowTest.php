@@ -274,6 +274,25 @@ test('present sets the membership as connected', function () {
     expect($membership->isConnected())->toBeTrue();
 });
 
+test('refresh refreshes the connection TTL', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    $membership = \App\Models\RoomMembership::where('user_id', $user->id)->where('room_id', $room->id)->first();
+    $original = $membership->fresh()->connected_at;
+
+    $this->travel(30)->seconds();
+
+    $component->call('refresh');
+
+    expect($membership->fresh()->connected_at->gt($original))->toBeTrue();
+    expect($membership->fresh()->isConnected())->toBeTrue();
+});
+
 test('absent marks the membership as disconnected', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;

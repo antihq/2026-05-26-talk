@@ -31,7 +31,6 @@ test('absent disconnects user from room', function () {
         ->first();
 
     expect($membership->isConnected())->toBeFalse();
-    expect($membership->connections)->toBe(0);
 });
 
 test('absent returns 204 no content', function () {
@@ -58,28 +57,6 @@ test('absent for room with no membership returns 204', function () {
         ->postJson(route('presence.absent', $room));
 
     $response->assertNoContent();
-});
-
-test('absent decrements connections for multi-tab user', function () {
-    $user = User::factory()->create();
-    $team = $user->currentTeam;
-    $room = Room::factory()->create(['team_id' => $team->id]);
-
-    RoomMembership::present($user, $room);
-    RoomMembership::present($user, $room);
-
-    $response = $this
-        ->actingAs($user)
-        ->postJson(route('presence.absent', $room));
-
-    $response->assertNoContent();
-
-    $membership = RoomMembership::where('user_id', $user->id)
-        ->where('room_id', $room->id)
-        ->first();
-
-    expect($membership->connections)->toBe(1);
-    expect($membership->isConnected())->toBeTrue();
 });
 
 test('absent for room from another team is forbidden', function () {
@@ -116,7 +93,7 @@ test('user cannot disconnect presence for a room they are not a team member of',
     expect($membership->isConnected())->toBeTrue();
 });
 
-test('absent when already disconnected stays at zero', function () {
+test('absent when already disconnected stays disconnected', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
@@ -138,6 +115,5 @@ test('absent when already disconnected stays at zero', function () {
         ->where('room_id', $room->id)
         ->first();
 
-    expect($membership->connections)->toBe(0);
     expect($membership->connected_at)->toBeNull();
 });

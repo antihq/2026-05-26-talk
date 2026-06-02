@@ -9,7 +9,7 @@ class RoomMembership extends Model
 {
     protected $table = 'room_memberships';
 
-    protected $fillable = ['user_id', 'room_id', 'last_read_at', 'connections', 'connected_at'];
+    protected $fillable = ['user_id', 'room_id', 'last_read_at', 'connected_at'];
 
     const CONNECTION_TTL = 60;
 
@@ -35,7 +35,7 @@ class RoomMembership extends Model
     public static function disconnectAll(): void
     {
         static::where('connected_at', '>=', now()->subSeconds(static::CONNECTION_TTL))
-            ->update(['connected_at' => null, 'connections' => 0]);
+            ->update(['connected_at' => null]);
     }
 
     public static function present(User $user, Room $room): RoomMembership
@@ -44,21 +44,14 @@ class RoomMembership extends Model
             ['user_id' => $user->id, 'room_id' => $room->id],
         );
 
-        if ($membership->isConnected()) {
-            $membership->increment('connections');
-            $membership->touchQuietly('connected_at');
-        } else {
-            $membership->updateQuietly([
-                'connections' => 1,
-                'connected_at' => now(),
-            ]);
-        }
-
-        $membership->updateQuietly(['last_read_at' => now()]);
+        $membership->updateQuietly([
+            'connected_at' => now(),
+            'last_read_at' => now(),
+        ]);
 
         static::where('user_id', $user->id)
             ->where('room_id', '!=', $room->id)
-            ->update(['connected_at' => null, 'connections' => 0]);
+            ->update(['connected_at' => null]);
 
         return $membership;
     }
@@ -68,36 +61,13 @@ class RoomMembership extends Model
         return $this->connected_at && $this->connected_at >= now()->subSeconds(static::CONNECTION_TTL);
     }
 
-    public function markConnected(): void
-    {
-        if ($this->isConnected()) {
-            $this->increment('connections');
-        } else {
-            $this->updateQuietly(['connections' => 1]);
-        }
-
-        $this->touchQuietly('connected_at');
-    }
-
     public function markDisconnected(): void
     {
-        if ($this->isConnected()) {
-            if ($this->connections > 1) {
-                $this->decrement('connections');
-            } else {
-                $this->updateQuietly(['connections' => 0, 'connected_at' => null]);
-            }
-        } else {
-            $this->updateQuietly(['connections' => 0]);
-        }
+        $this->updateQuietly(['connected_at' => null]);
     }
 
     public function refreshConnection(): void
     {
-        if (!$this->isConnected()) {
-            $this->increment('connections');
-        }
-
         $this->touchQuietly('connected_at');
     }
 

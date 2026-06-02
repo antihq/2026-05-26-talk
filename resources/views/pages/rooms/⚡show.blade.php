@@ -53,16 +53,6 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     }
 
     #[Renderless]
-    public function present(): void
-    {
-        $membership = RoomMembership::where('user_id', auth()->id())
-            ->where('room_id', $this->room->id)
-            ->first();
-
-        $membership?->markConnected();
-    }
-
-    #[Renderless]
     public function refresh(): void
     {
         $membership = RoomMembership::where('user_id', auth()->id())
@@ -266,12 +256,11 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     const pusher = Echo.connector.pusher
 
     if (pusher.connection.state === 'connected') {
-        $wire.present()
         startRefreshTimer()
     }
 
     const connectedHandler = () => {
-        $wire.present()
+        $wire.refresh()
         startRefreshTimer()
     }
 
@@ -287,7 +276,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         if (document.visibilityState === 'visible') {
             setTimeout(() => {
                 if (document.visibilityState === 'visible' && !wasVisible) {
-                    $wire.present()
+                    $wire.refresh()
                     startRefreshTimer()
                     wasVisible = true
                 }
