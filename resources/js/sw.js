@@ -61,13 +61,14 @@ self.addEventListener('notificationclick', function (event) {
 });
 
 async function openURL(url) {
-    const clients = await self.clients.matchAll({ type: 'window' });
-    const focused = clients.find((client) => client.focused);
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
 
     self.navigator.clearAppBadge?.();
 
-    if (focused) {
-        await focused.navigate(url);
+    const existingClient = clients[0];
+
+    if (existingClient) {
+        await existingClient.navigate(url);
     } else {
         await self.clients.openWindow(url);
     }
