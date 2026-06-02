@@ -231,6 +231,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 <script>
 (() => {
     const roomId = $wire.$el.dataset.roomId
+    const ac = new AbortController()
     let refreshTimer = null
     let wasVisible = true
 
@@ -255,6 +256,13 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         })
     }
 
+    function cleanup() {
+        stopRefreshTimer()
+        ac.abort()
+        pusher.connection.unbind('connected', connectedHandler)
+        pusher.connection.unbind('disconnected', disconnectedHandler)
+    }
+
     const pusher = Echo.connector.pusher
 
     if (pusher.connection.state === 'connected') {
@@ -262,15 +270,18 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         startRefreshTimer()
     }
 
-    pusher.connection.bind('connected', () => {
+    const connectedHandler = () => {
         $wire.present()
         startRefreshTimer()
-    })
+    }
 
-    pusher.connection.bind('disconnected', () => {
+    const disconnectedHandler = () => {
         stopRefreshTimer()
         $wire.absent()
-    })
+    }
+
+    pusher.connection.bind('connected', connectedHandler)
+    pusher.connection.bind('disconnected', disconnectedHandler)
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
@@ -290,14 +301,13 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                 }
             }, 5000)
         }
-    })
+    }, { signal: ac.signal })
 
-    window.addEventListener('beforeunload', absentFetch)
+    window.addEventListener('beforeunload', absentFetch, { signal: ac.signal })
 
-    const navigatingHandler = () => {
-        stopRefreshTimer()
+    document.addEventListener('livewire:navigating', () => {
         absentFetch()
-    }
-    document.addEventListener('livewire:navigating', navigatingHandler)
+        cleanup()
+    }, { signal: ac.signal })
 })()
 </script>
