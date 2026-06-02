@@ -151,12 +151,18 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         }
     }"
 >
-    <ul role="list" class="divide-y divide-zinc-950/5 dark:divide-white/5">
+    <ul role="list">
         @foreach ($this->messages as $message)
-            <li @class([
-                'py-2',
-                'flex flex-col items-end' => $message->user_id === auth()->id(),
-            ])>
+            <li
+                data-threaded="{{ $message->isThreaded }}"
+                @class([
+                    'flex flex-col items-end' => $message->user_id === auth()->id(),
+                    'pt-2 pb-2 border-t border-zinc-950/5 dark:border-white/5',
+                    'data-threaded:pt-0 data-threaded:pb-0 data-threaded:border-t-0',
+                    'has-[+[data-threaded]]:pb-0',
+                    'data-threaded:not-has-[+[data-threaded]]:pb-2',
+                ])
+            >
                 @if (!$message->isThreaded)
                     <div class="flex items-center gap-x-3">
                         @if ($message->user_id === auth()->id())
