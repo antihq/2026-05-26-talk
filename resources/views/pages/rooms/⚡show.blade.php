@@ -285,7 +285,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             setTimeout(() => {
                 if (document.visibilityState !== 'visible' && wasVisible) {
                     stopRefreshTimer()
-                    $wire.absent()
+                    absentFetch()
                     wasVisible = false
                 }
             }, 5000)
