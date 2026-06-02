@@ -46,11 +46,7 @@ self.addEventListener('push', function (event) {
     event.waitUntil(
         self.registration.showNotification(title, options).then(() => {
             if (typeof data.notification?.data?.unread_count === 'number') {
-                self.clients.matchAll().then(clients => {
-                    clients.forEach(client => {
-                        client.postMessage({ type: 'update-badge', count: data.notification.data.unread_count });
-                    });
-                });
+                self.navigator.setAppBadge?.(data.notification.data.unread_count);
             }
         })
     );
@@ -61,17 +57,18 @@ self.addEventListener('notificationclick', function (event) {
 
     const url = event.notification.data?.url || '/';
 
-    event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (windowClients) {
-            for (const client of windowClients) {
-                if (client.url === url && 'focus' in client) {
-                    client.postMessage({ type: 'clear-badge' });
-                    return client.focus();
-                }
-            }
-            if (clients.openWindow) {
-                return clients.openWindow(url);
-            }
-        })
-    );
+    event.waitUntil(openURL(url));
 });
+
+async function openURL(url) {
+    const clients = await self.clients.matchAll({ type: 'window' });
+    const focused = clients.find((client) => client.focused);
+
+    self.navigator.clearAppBadge?.();
+
+    if (focused) {
+        await focused.navigate(url);
+    } else {
+        await self.clients.openWindow(url);
+    }
+}
