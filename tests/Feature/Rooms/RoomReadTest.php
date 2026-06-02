@@ -334,9 +334,9 @@ test('unread scope counts multiple unread rooms', function () {
     expect($count)->toBe(2);
 });
 
-// markAsRead on poll
+// markAsRead on mount
 
-test('polling refreshes last_read_at when new message arrives', function () {
+test('mount marks room as read', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
     $room = Room::factory()->create(['team_id' => $team->id]);
@@ -345,14 +345,5 @@ test('polling refreshes last_read_at when new message arrives', function () {
         ->test('pages::rooms.show', ['room' => $room]);
 
     $read = RoomRead::where('user_id', $user->id)->where('room_id', $room->id)->first();
-    $originalReadAt = $read->last_read_at;
-
-    $this->travel(1)->minute();
-
-    Message::factory()->create(['room_id' => $room->id, 'user_id' => $user->id]);
-
-    $component->refresh();
-
-    $read->refresh();
-    expect($read->last_read_at->gt($originalReadAt))->toBeTrue();
+    expect($read->last_read_at)->not->toBeNull();
 });

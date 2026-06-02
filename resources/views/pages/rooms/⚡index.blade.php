@@ -1,11 +1,25 @@
 <?php
 
+use App\Events\UnreadRoomUpdated;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new #[Layout('layouts.app'), Title('Rooms')] class extends Component
 {
+    public function getListeners()
+    {
+        return [
+            'echo-private:user.' . auth()->id() . ',UnreadRoomUpdated' => 'refreshRooms',
+        ];
+    }
+
+    public function refreshRooms(): void
+    {
+        //
+    }
+
     public function getRoomsProperty()
     {
         return auth()->user()->currentTeam->rooms()
@@ -24,7 +38,6 @@ new #[Layout('layouts.app'), Title('Rooms')] class extends Component
 
 <div
     class="flex flex-wrap items-center gap-x-3"
-    wire:poll.5s
     x-data
     x-init="
         let updateBadge = count => {

@@ -1,11 +1,14 @@
 <?php
 
 use App\Enums\TeamRole;
+use App\Events\MessageSent;
+use App\Events\UnreadRoomUpdated;
 use App\Models\Message;
 use App\Models\Room;
 use App\Models\Team;
 use App\Models\User;
 use App\Notifications\NewMessage;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 
@@ -211,6 +214,53 @@ test('notifies user whose presence has expired', function () {
         ->assertHasNoErrors();
 
     Notification::assertSentTo($viewer, NewMessage::class);
+});
+
+test('sending a message broadcasts MessageSent event', function () {
+    $sender = User::factory()->create();
+    $team = $sender->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Event::fake([MessageSent::class]);
+    Notification::fake();
+
+    Livewire::actingAs($sender)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('body', 'Hello!')
+        ->call('sendMessage');
+
+    Event::assertDispatched(MessageSent::class, function ($event) use ($room) {
+        return $event->message->room_id === $room->id
+            && $event->message->body === 'Hello!';
+    });
+});
+
+test('sending a message broadcasts UnreadRoomUpdated to each team member', function () {
+    $sender = User::factory()->create();
+    $memberA = User::factory()->create();
+    $memberB = User::factory()->create();
+    $team = $sender->currentTeam;
+    $team->members()->attach($memberA, ['role' => TeamRole::Member->value]);
+    $team->members()->attach($memberB, ['role' => TeamRole::Member->value]);
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Event::fake([UnreadRoomUpdated::class]);
+    Notification::fake();
+
+    Livewire::actingAs($sender)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('body', 'Hello!')
+        ->call('sendMessage');
+
+    Event::assertDispatched(UnreadRoomUpdated::class, function ($event) use ($memberA, $room) {
+        return $event->user->id === $memberA->id
+            && $event->room->id === $room->id;
+    });
+    Event::assertDispatched(UnreadRoomUpdated::class, function ($event) use ($memberB, $room) {
+        return $event->user->id === $memberB->id
+            && $event->room->id === $room->id;
+    });
+    Event::assertDispatchedTimes(UnreadRoomUpdated::class, 2);
 });
 
 test('presence cache key is set when viewing a room', function () {

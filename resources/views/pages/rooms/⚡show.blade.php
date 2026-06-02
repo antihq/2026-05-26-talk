@@ -1,5 +1,7 @@
 <?php
 
+use App\Events\MessageSent;
+use App\Events\UnreadRoomUpdated;
 use App\Models\Message;
 use App\Models\Room;
 use App\Models\RoomRead;
@@ -7,6 +9,7 @@ use App\Notifications\NewMessage;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -23,6 +26,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
         $this->clearPresenceForOtherRooms();
         $this->markAsRead();
+        $this->present();
     }
 
     private function clearPresenceForOtherRooms(): void
@@ -44,12 +48,34 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         );
     }
 
+    #[On('echo-private:room.{room.id},MessageSent')]
+    public function refreshMessages(): void
+    {
+        //
+    }
+
+    #[On('echo-presence:room.{room.id},here')]
+    public function presenceHere($users): void
+    {
+        foreach ($users as $user) {
+            Cache::put("room:{$this->room->id}:presence:{$user['id']}", true, 120);
+        }
+    }
+
+    #[On('echo-presence:room.{room.id},joining')]
+    public function presenceJoining($user): void
+    {
+        Cache::put("room:{$this->room->id}:presence:{$user['id']}", true, 120);
+    }
+
+    #[On('echo-presence:room.{room.id},leaving')]
+    public function presenceLeaving($user): void
+    {
+        Cache::forget("room:{$this->room->id}:presence:{$user['id']}");
+    }
+
     public function getMessagesProperty()
     {
-        Cache::put("room:{$this->room->id}:presence:" . auth()->id(), true, 60);
-
-        $this->markAsRead();
-
         $messages = $this->room->messages()
             ->with('user')
             ->latest()
@@ -66,6 +92,12 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
             return $message;
         });
+    }
+
+    #[Renderless]
+    public function present(): void
+    {
+        Cache::put("room:{$this->room->id}:presence:" . auth()->id(), true, 120);
     }
 
     #[Renderless]
@@ -86,6 +118,8 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             'body' => $this->body,
         ]);
 
+        broadcast(new MessageSent($message));
+
         $members = $this->room->team->members()
             ->where('user_id', '!=', auth()->id())
             ->get()
@@ -97,6 +131,10 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             body: $message->body,
         ));
 
+        foreach ($this->room->team->members()->where('user_id', '!=', auth()->id())->get() as $member) {
+            broadcast(new UnreadRoomUpdated($this->room, $member));
+        }
+
         $this->reset('body');
 
         $this->dispatch('message-sent');
@@ -105,8 +143,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
 <div
     class="max-w-2xl"
-    wire:poll.5s
-    x-on:visibilitychange.window="document.visibilityState === 'hidden' && $wire.absent()"
+    x-on:visibilitychange.window="document.visibilityState === 'hidden' ? $wire.absent() : $wire.present()"
     x-data="{
         nearBottom: true,
 
