@@ -21,7 +21,19 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     {
         $this->authorize('view', $this->room);
 
+        $this->clearPresenceForOtherRooms();
         $this->markAsRead();
+    }
+
+    private function clearPresenceForOtherRooms(): void
+    {
+        $otherRoomIds = auth()->user()->currentTeam->rooms()
+            ->where('id', '!=', $this->room->id)
+            ->pluck('id');
+
+        foreach ($otherRoomIds as $roomId) {
+            Cache::forget("room:{$roomId}:presence:" . auth()->id());
+        }
     }
 
     private function markAsRead(): void
