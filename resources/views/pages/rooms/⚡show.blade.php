@@ -260,8 +260,10 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     }
 
     const connectedHandler = () => {
-        $wire.refresh()
-        startRefreshTimer()
+        if (document.visibilityState === 'visible') {
+            $wire.refresh()
+            startRefreshTimer()
+        }
     }
 
     const disconnectedHandler = () => {
@@ -285,7 +287,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             setTimeout(() => {
                 if (document.visibilityState !== 'visible' && wasVisible) {
                     stopRefreshTimer()
-                    absentFetch()
+                    $wire.absent()
                     wasVisible = false
                 }
             }, 5000)
