@@ -154,7 +154,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     <ul role="list">
         @foreach ($this->messages as $message)
             <li
-                data-threaded="{{ $message->isThreaded }}"
+                @if($message->isThreaded) data-threaded @endif
                 @class([
                     'flex flex-col items-end' => $message->user_id === auth()->id(),
                     'pt-2 pb-2 border-t border-zinc-950/5 dark:border-white/5',
