@@ -251,6 +251,37 @@ test('notifies user who is subscribed but marked away', function () {
     Notification::assertSentTo($viewer, NewMessage::class);
 });
 
+test('handles mixed presence states correctly', function () {
+    $sender = User::factory()->create();
+    $subscribed = User::factory()->create();
+    $away = User::factory()->create();
+    $disconnected = User::factory()->create();
+    $team = $sender->currentTeam;
+    $team->members()->attach($subscribed, ['role' => TeamRole::Member->value]);
+    $team->members()->attach($away, ['role' => TeamRole::Member->value]);
+    $team->members()->attach($disconnected, ['role' => TeamRole::Member->value]);
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $this->mock(RoomPresence::class, function ($mock) use ($room, $subscribed, $away) {
+        $mock->shouldReceive('subscribedUserIds')
+            ->andReturn([$subscribed->id, $away->id]);
+    });
+
+    Cache::put("room:{$room->id}:away:{$away->id}", true, now()->addMinutes(5));
+
+    Notification::fake();
+
+    Livewire::actingAs($sender)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('body', 'Hello!')
+        ->call('sendMessage')
+        ->assertHasNoErrors();
+
+    Notification::assertNotSentTo($subscribed, NewMessage::class);
+    Notification::assertSentTo($away, NewMessage::class);
+    Notification::assertSentTo($disconnected, NewMessage::class);
+});
+
 test('notifies disconnected team member', function () {
     $sender = User::factory()->create();
     $member = User::factory()->create();
