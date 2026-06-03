@@ -6,6 +6,7 @@ use App\Events\UnreadRoomUpdated;
 use App\Models\Message;
 use App\Models\Room;
 use App\Models\Team;
+use Illuminate\Support\Facades\Cache;
 use App\Models\User;
 use App\Notifications\NewMessage;
 use App\Services\RoomPresence;
@@ -196,6 +197,58 @@ test('does not notify user subscribed to room presence channel', function () {
         ->assertHasNoErrors();
 
     Notification::assertNotSentTo($viewer, NewMessage::class);
+});
+
+test('away sets cache key', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    $component->call('away');
+
+    expect(Cache::has("room:{$room->id}:away:{$user->id}"))->toBeTrue();
+});
+
+test('back clears cache key', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    $component->call('away');
+    $component->call('back');
+
+    expect(Cache::has("room:{$room->id}:away:{$user->id}"))->toBeFalse();
+});
+
+test('notifies user who is subscribed but marked away', function () {
+    $sender = User::factory()->create();
+    $viewer = User::factory()->create();
+    $team = $sender->currentTeam;
+    $team->members()->attach($viewer, ['role' => TeamRole::Member->value]);
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $this->mock(RoomPresence::class, function ($mock) use ($room, $viewer) {
+        $mock->shouldReceive('subscribedUserIds')
+            ->andReturn([$viewer->id]);
+    });
+
+    Cache::put("room:{$room->id}:away:{$viewer->id}", true, now()->addMinutes(5));
+
+    Notification::fake();
+
+    Livewire::actingAs($sender)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('body', 'Hello!')
+        ->call('sendMessage')
+        ->assertHasNoErrors();
+
+    Notification::assertSentTo($viewer, NewMessage::class);
 });
 
 test('notifies disconnected team member', function () {

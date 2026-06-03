@@ -6,9 +6,11 @@ use App\Models\Message;
 use App\Models\Room;
 use App\Notifications\NewMessage;
 use App\Services\RoomPresence;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -26,6 +28,22 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             ['user_id' => auth()->id(), 'room_id' => $this->room->id],
             ['last_read_at' => now()],
         );
+    }
+
+    #[Renderless]
+    public function away(): void
+    {
+        Cache::put(
+            "room:{$this->room->id}:away:" . auth()->id(),
+            true,
+            now()->addMinutes(5),
+        );
+    }
+
+    #[Renderless]
+    public function back(): void
+    {
+        Cache::forget("room:{$this->room->id}:away:" . auth()->id());
     }
 
     #[On('echo-presence:room.{room.id},MessageSent')]
@@ -74,7 +92,13 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             ->where('user_id', '!=', auth()->id())
             ->get();
 
-        $disconnectedMembers = $otherMembers->reject(fn ($member) => in_array($member->id, $subscribedIds));
+        $awayIds = $otherMembers->filter(
+            fn ($member) => Cache::has("room:{$this->room->id}:away:{$member->id}"),
+        )->pluck('id')->toArray();
+
+        $skipIds = array_values(array_diff($subscribedIds, $awayIds));
+
+        $disconnectedMembers = $otherMembers->reject(fn ($member) => in_array($member->id, $skipIds));
 
         Notification::send($disconnectedMembers, new NewMessage(
             room: $this->room,
@@ -187,7 +211,6 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                 <flux:link href="{{ route('rooms.edit', ['current_team' => auth()->user()->currentTeam->slug, 'room' => $room]) }}" wire:navigate>edit</flux:link>
             @endcan
         </div>
-
         <form wire:submit="sendMessage" class="mt-2">
             <flux:field>
                 <flux:input wire:model="body" autocomplete="off" autofocus />
@@ -199,4 +222,12 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     </div>
 </div>
 
-
+<script>
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+        $wire.away()
+    } else {
+        $wire.back()
+    }
+})
+</script>
