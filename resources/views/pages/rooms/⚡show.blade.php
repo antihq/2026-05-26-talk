@@ -268,7 +268,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
     const disconnectedHandler = () => {
         stopRefreshTimer()
-        $wire.absent()
+        absentFetch()
     }
 
     pusher.connection.bind('connected', connectedHandler)
@@ -284,13 +284,9 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                 }
             }, 5000)
         } else {
-            setTimeout(() => {
-                if (document.visibilityState !== 'visible' && wasVisible) {
-                    stopRefreshTimer()
-                    absentFetch()
-                    wasVisible = false
-                }
-            }, 5000)
+            absentFetch()
+            stopRefreshTimer()
+            wasVisible = false
         }
     }, { signal: ac.signal })
 
