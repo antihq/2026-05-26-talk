@@ -158,6 +158,9 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                 window.addEventListener('message-sent', () => {
                     this.nearBottom = true
                     this.scrollToBottom()
+                    this.$nextTick(() => {
+                        this.$el.querySelector('textarea')?.dispatchEvent(new Event('input'))
+                    })
                 })
             },
 
@@ -232,9 +235,9 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
     <div class="sticky bottom-0 pb-4 pt-2 bg-white dark:bg-zinc-900 -mb-4">
         <form wire:submit="sendMessage">
-            <flux:composer wire:model="body" label="message" rows="1" submit="enter" inline label:sr-only>
+            <flux:composer wire:model="body" label="message" rows="1" placeholder="message" inline label:sr-only>
                 <x-slot name="actionsTrailing">
-                    <flux:button type="submit" variant="primary" color="lime" class="lowercase">send message</flux:button>
+                    <flux:button type="submit" variant="primary" color="lime" class="lowercase">send</flux:button>
                 </x-slot>
             </flux:composer>
         </form>
