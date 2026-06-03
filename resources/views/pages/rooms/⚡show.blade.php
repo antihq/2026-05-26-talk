@@ -224,14 +224,21 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         @endforeach
     </ul>
 
-    <div x-cloak x-show="!nearBottom" x-transition class="fixed bottom-24 right-4 z-10">
+    <div x-cloak x-show="!nearBottom" x-transition class="fixed bottom-32 right-4 z-10 bg-white dark:bg-zinc-900">
         <flux:button size="xs" variant="filled" @click="scrollToBottom(); nearBottom = true;" class="lowercase shadow-lg">
             jump to latest
         </flux:button>
     </div>
 
     <div class="sticky bottom-0 pb-4 pt-2 bg-white dark:bg-zinc-900 -mb-4">
-        <div class="flex justify-between flex-wrap gap-x-3">
+        <form wire:submit="sendMessage">
+            <flux:composer wire:model="body" label="message" rows="1" submit="enter" inline label:sr-only>
+                <x-slot name="actionsTrailing">
+                    <flux:button type="submit" variant="primary" color="lime" class="lowercase">send message</flux:button>
+                </x-slot>
+            </flux:composer>
+        </form>
+        <div class="flex justify-between flex-wrap gap-x-3 mt-2">
             <div class="flex items-center gap-x-3">
                 <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
                 @can('update', $room)
@@ -247,14 +254,6 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                 @endif
             </div>
         </div>
-        <form wire:submit="sendMessage" class="mt-2">
-            <flux:field>
-                <flux:input wire:model="body" autocomplete="off" autofocus />
-            </flux:field>
-            <div class="mt-4 flex justify-end">
-                <flux:button type="submit" variant="primary" color="lime" class="lowercase">say it</flux:button>
-            </div>
-        </form>
     </div>
 </div>
 
