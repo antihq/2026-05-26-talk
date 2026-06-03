@@ -4,9 +4,9 @@ use App\Events\MessageSent;
 use App\Models\Message;
 use App\Models\Room;
 use App\Models\User;
-use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Broadcasting\PresenceChannel;
 
-test('broadcasts on private room channel', function () {
+test('broadcasts on presence room channel', function () {
     $user = User::factory()->create();
     $room = Room::factory()->create(['team_id' => $user->currentTeam->id]);
     $message = Message::factory()->create([
@@ -18,8 +18,8 @@ test('broadcasts on private room channel', function () {
     $event = new MessageSent($message);
 
     $channel = $event->broadcastOn();
-    expect($channel)->toBeInstanceOf(PrivateChannel::class);
-    expect($channel->name)->toBe('private-room.'.$room->id);
+    expect($channel)->toBeInstanceOf(PresenceChannel::class);
+    expect($channel->name)->toBe('presence-room.'.$room->id);
 });
 
 test('broadcast payload contains message data', function () {

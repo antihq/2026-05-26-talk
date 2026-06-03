@@ -3,7 +3,7 @@
 namespace App\Events;
 
 use App\Models\Message;
-use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Contracts\Broadcasting\ShouldRescue;
 use Illuminate\Queue\SerializesModels;
@@ -16,9 +16,9 @@ class MessageSent implements ShouldBroadcastNow, ShouldRescue
         public Message $message,
     ) {}
 
-    public function broadcastOn(): PrivateChannel
+    public function broadcastOn(): PresenceChannel
     {
-        return new PrivateChannel('room.'.$this->message->room_id);
+        return new PresenceChannel('room.'.$this->message->room_id);
     }
 
     public function broadcastWith(): array

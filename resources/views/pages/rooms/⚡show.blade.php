@@ -4,12 +4,11 @@ use App\Events\MessageSent;
 use App\Events\UnreadRoomUpdated;
 use App\Models\Message;
 use App\Models\Room;
-use App\Models\RoomMembership;
 use App\Notifications\NewMessage;
+use App\Services\RoomPresence;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
-use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -23,10 +22,13 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     {
         $this->authorize('view', $this->room);
 
-        RoomMembership::present(auth()->user(), $this->room);
+        \App\Models\RoomMembership::updateOrCreate(
+            ['user_id' => auth()->id(), 'room_id' => $this->room->id],
+            ['last_read_at' => now()],
+        );
     }
 
-    #[On('echo-private:room.{room.id},MessageSent')]
+    #[On('echo-presence:room.{room.id},MessageSent')]
     public function refreshMessages(): void
     {
         //
@@ -52,26 +54,6 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         });
     }
 
-    #[Renderless]
-    public function refresh(): void
-    {
-        $membership = RoomMembership::where('user_id', auth()->id())
-            ->where('room_id', $this->room->id)
-            ->first();
-
-        $membership?->refreshConnection();
-    }
-
-    #[Renderless]
-    public function absent(): void
-    {
-        $membership = RoomMembership::where('user_id', auth()->id())
-            ->where('room_id', $this->room->id)
-            ->first();
-
-        $membership?->markDisconnected();
-    }
-
     public function sendMessage(): void
     {
         $this->validate([
@@ -86,14 +68,13 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
         broadcast(new MessageSent($message));
 
-        $connectedUserIds = RoomMembership::where('room_id', $this->room->id)
-            ->connected()
-            ->pluck('user_id');
+        $subscribedIds = app(RoomPresence::class)->subscribedUserIds($this->room);
 
-        $disconnectedMembers = $this->room->team->members()
+        $otherMembers = $this->room->team->members()
             ->where('user_id', '!=', auth()->id())
-            ->whereNotIn('user_id', $connectedUserIds)
             ->get();
+
+        $disconnectedMembers = $otherMembers->reject(fn ($member) => in_array($member->id, $subscribedIds));
 
         Notification::send($disconnectedMembers, new NewMessage(
             room: $this->room,
@@ -101,7 +82,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             body: $message->body,
         ));
 
-        foreach ($this->room->team->members()->where('user_id', '!=', auth()->id())->get() as $member) {
+        foreach ($otherMembers as $member) {
             broadcast(new UnreadRoomUpdated($this->room, $member));
         }
 
@@ -218,83 +199,4 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     </div>
 </div>
 
-<script>
-(() => {
-    const roomId = $wire.$el.dataset.roomId
-    const ac = new AbortController()
-    let refreshTimer = null
-    let wasVisible = true
 
-    function startRefreshTimer() {
-        if (refreshTimer) return
-        refreshTimer = setInterval(() => $wire.refresh(), 50000)
-    }
-
-    function stopRefreshTimer() {
-        clearInterval(refreshTimer)
-        refreshTimer = null
-    }
-
-    function absentFetch() {
-        fetch('/presence/' + roomId + '/absent', {
-            method: 'POST',
-            keepalive: true,
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Content-Type': 'application/json',
-            },
-        })
-    }
-
-    function cleanup() {
-        stopRefreshTimer()
-        ac.abort()
-        pusher.connection.unbind('connected', connectedHandler)
-        pusher.connection.unbind('disconnected', disconnectedHandler)
-    }
-
-    const pusher = Echo.connector.pusher
-
-    if (pusher.connection.state === 'connected') {
-        startRefreshTimer()
-    }
-
-    const connectedHandler = () => {
-        if (document.visibilityState === 'visible') {
-            $wire.refresh()
-            startRefreshTimer()
-        }
-    }
-
-    const disconnectedHandler = () => {
-        stopRefreshTimer()
-        absentFetch()
-    }
-
-    pusher.connection.bind('connected', connectedHandler)
-    pusher.connection.bind('disconnected', disconnectedHandler)
-
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            setTimeout(() => {
-                if (document.visibilityState === 'visible' && !wasVisible) {
-                    $wire.refresh()
-                    startRefreshTimer()
-                    wasVisible = true
-                }
-            }, 5000)
-        } else {
-            absentFetch()
-            stopRefreshTimer()
-            wasVisible = false
-        }
-    }, { signal: ac.signal })
-
-    window.addEventListener('beforeunload', absentFetch, { signal: ac.signal })
-
-    document.addEventListener('livewire:navigating', () => {
-        absentFetch()
-        cleanup()
-    }, { signal: ac.signal })
-})()
-</script>

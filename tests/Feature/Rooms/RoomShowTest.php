@@ -8,6 +8,7 @@ use App\Models\Room;
 use App\Models\Team;
 use App\Models\User;
 use App\Notifications\NewMessage;
+use App\Services\RoomPresence;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
@@ -155,14 +156,36 @@ test('sending a message does not notify the sender', function () {
     Notification::assertNotSentTo($sender, NewMessage::class);
 });
 
-test('does not notify user currently viewing the room', function () {
+test('notifies team member not viewing the room', function () {
     $sender = User::factory()->create();
     $viewer = User::factory()->create();
     $team = $sender->currentTeam;
     $team->members()->attach($viewer, ['role' => TeamRole::Member->value]);
     $room = Room::factory()->create(['team_id' => $team->id]);
 
-    \App\Models\RoomMembership::present($viewer, $room);
+    Notification::fake();
+
+    Livewire::actingAs($sender)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('body', 'Hello!')
+        ->call('sendMessage')
+        ->assertHasNoErrors();
+
+    Notification::assertSentTo($viewer, NewMessage::class);
+});
+
+test('does not notify user subscribed to room presence channel', function () {
+    $sender = User::factory()->create();
+    $viewer = User::factory()->create();
+    $team = $sender->currentTeam;
+    $team->members()->attach($viewer, ['role' => TeamRole::Member->value]);
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $this->mock(RoomPresence::class, function ($mock) use ($room, $viewer) {
+        $mock->shouldReceive('subscribedUserIds')
+            ->with(\Mockery::on(fn ($r) => $r->is($room)))
+            ->andReturn([$viewer->id]);
+    });
 
     Notification::fake();
 
@@ -191,28 +214,6 @@ test('notifies disconnected team member', function () {
         ->assertHasNoErrors();
 
     Notification::assertSentTo($member, NewMessage::class);
-});
-
-test('notifies user whose presence has expired', function () {
-    $sender = User::factory()->create();
-    $viewer = User::factory()->create();
-    $team = $sender->currentTeam;
-    $team->members()->attach($viewer, ['role' => TeamRole::Member->value]);
-    $room = Room::factory()->create(['team_id' => $team->id]);
-
-    \App\Models\RoomMembership::present($viewer, $room);
-
-    $this->travel(\App\Models\RoomMembership::CONNECTION_TTL + 1)->seconds();
-
-    Notification::fake();
-
-    Livewire::actingAs($sender)
-        ->test('pages::rooms.show', ['room' => $room])
-        ->set('body', 'Hello!')
-        ->call('sendMessage')
-        ->assertHasNoErrors();
-
-    Notification::assertSentTo($viewer, NewMessage::class);
 });
 
 test('sending a message broadcasts MessageSent event', function () {
@@ -262,52 +263,7 @@ test('sending a message broadcasts UnreadRoomUpdated to each team member', funct
     Event::assertDispatchedTimes(UnreadRoomUpdated::class, 2);
 });
 
-test('present sets the membership as connected', function () {
-    $user = User::factory()->create();
-    $team = $user->currentTeam;
-    $room = Room::factory()->create(['team_id' => $team->id]);
 
-    Livewire::actingAs($user)
-        ->test('pages::rooms.show', ['room' => $room]);
-
-    $membership = \App\Models\RoomMembership::where('user_id', $user->id)->where('room_id', $room->id)->first();
-    expect($membership->isConnected())->toBeTrue();
-});
-
-test('refresh refreshes the connection TTL', function () {
-    $user = User::factory()->create();
-    $team = $user->currentTeam;
-    $room = Room::factory()->create(['team_id' => $team->id]);
-
-    $component = Livewire::actingAs($user)
-        ->test('pages::rooms.show', ['room' => $room]);
-
-    $membership = \App\Models\RoomMembership::where('user_id', $user->id)->where('room_id', $room->id)->first();
-    $original = $membership->fresh()->connected_at;
-
-    $this->travel(30)->seconds();
-
-    $component->call('refresh');
-
-    expect($membership->fresh()->connected_at->gt($original))->toBeTrue();
-    expect($membership->fresh()->isConnected())->toBeTrue();
-});
-
-test('absent marks the membership as disconnected', function () {
-    $user = User::factory()->create();
-    $team = $user->currentTeam;
-    $room = Room::factory()->create(['team_id' => $team->id]);
-
-    $component = Livewire::actingAs($user)
-        ->test('pages::rooms.show', ['room' => $room]);
-
-    $membership = \App\Models\RoomMembership::where('user_id', $user->id)->where('room_id', $room->id)->first();
-    expect($membership->isConnected())->toBeTrue();
-
-    $component->call('absent');
-
-    expect($membership->fresh()->isConnected())->toBeFalse();
-});
 
 test('three consecutive messages from same user within 5 minutes are threaded', function () {
     $user = User::factory()->create(['name' => 'Alice']);
