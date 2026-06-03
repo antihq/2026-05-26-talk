@@ -5,6 +5,7 @@ use App\Events\MessageSent;
 use App\Events\UnreadRoomUpdated;
 use App\Models\Message;
 use App\Models\Room;
+use App\Models\RoomMembership;
 use App\Models\Team;
 use Illuminate\Support\Facades\Cache;
 use App\Models\User;
@@ -535,4 +536,84 @@ test('first message is never threaded', function () {
 
     $component->assertSee('Lonely message');
     expect(substr_count($component->html(), 'Alice'))->toBe(1);
+});
+
+test('sending a message updates sender last_read_at', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Notification::fake();
+
+    Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('body', 'Hello!')
+        ->call('sendMessage');
+
+    $membership = RoomMembership::where('user_id', $user->id)
+        ->where('room_id', $room->id)
+        ->first();
+
+    $message = Message::where('room_id', $room->id)->first();
+
+    expect($membership->last_read_at)->not->toBeNull();
+    expect($membership->last_read_at->gte($message->created_at))->toBeTrue();
+});
+
+test('sending a message does not show room as unread for sender on index', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Notification::fake();
+
+    Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('body', 'Hello!')
+        ->call('sendMessage');
+
+    Livewire::actingAs($user)
+        ->test('pages::rooms.index')
+        ->assertDontSeeHtml('bg-lime-500');
+});
+
+test('refreshMessages updates viewer last_read_at', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    $this->travel(5)->minutes();
+
+    $component->call('refreshMessages');
+
+    $membership = RoomMembership::where('user_id', $user->id)
+        ->where('room_id', $room->id)
+        ->first();
+
+    expect($membership->last_read_at->diffInSeconds(now()))->toBeLessThan(5);
+});
+
+test('refreshMessages does not show room as unread for viewer on index', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    $this->travel(5)->minutes();
+
+    $room->messages()->create([
+        'user_id' => $user->id,
+        'body' => 'New message',
+    ]);
+
+    $component->call('refreshMessages');
+
+    Livewire::actingAs($user)
+        ->test('pages::rooms.index')
+        ->assertDontSeeHtml('bg-lime-500');
 });

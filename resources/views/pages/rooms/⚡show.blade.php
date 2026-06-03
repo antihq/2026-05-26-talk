@@ -49,7 +49,10 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     #[On('echo-presence:room.{room.id},MessageSent')]
     public function refreshMessages(): void
     {
-        //
+        \App\Models\RoomMembership::updateOrCreate(
+            ['user_id' => auth()->id(), 'room_id' => $this->room->id],
+            ['last_read_at' => now()],
+        );
     }
 
     public function getMessagesProperty()
@@ -85,6 +88,11 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         ]);
 
         broadcast(new MessageSent($message));
+
+        \App\Models\RoomMembership::updateOrCreate(
+            ['user_id' => auth()->id(), 'room_id' => $this->room->id],
+            ['last_read_at' => now()],
+        );
 
         $subscribedIds = app(RoomPresence::class)->subscribedUserIds($this->room);
 
