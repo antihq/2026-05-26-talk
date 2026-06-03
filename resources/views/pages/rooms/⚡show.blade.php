@@ -4,6 +4,7 @@ use App\Events\MessageSent;
 use App\Events\UnreadRoomUpdated;
 use App\Models\Message;
 use App\Models\Room;
+use App\Models\RoomMembership;
 use App\Notifications\NewMessage;
 use App\Services\RoomPresence;
 use Illuminate\Support\Facades\Cache;
@@ -20,11 +21,18 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
     public string $body = '';
 
+    public function getListeners()
+    {
+        return [
+            'echo-private:user.' . auth()->id() . ',UnreadRoomUpdated' => '$refresh',
+        ];
+    }
+
     public function mount(): void
     {
         $this->authorize('view', $this->room);
 
-        \App\Models\RoomMembership::updateOrCreate(
+        RoomMembership::updateOrCreate(
             ['user_id' => auth()->id(), 'room_id' => $this->room->id],
             ['last_read_at' => now()],
         );
@@ -49,10 +57,21 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     #[On('echo-presence:room.{room.id},MessageSent')]
     public function refreshMessages(): void
     {
-        \App\Models\RoomMembership::updateOrCreate(
+        RoomMembership::updateOrCreate(
             ['user_id' => auth()->id(), 'room_id' => $this->room->id],
             ['last_read_at' => now()],
         );
+    }
+
+    public function getUnreadRoomsCountProperty()
+    {
+        return auth()->user()->currentTeam->rooms()
+            ->withCount('messages')
+            ->withMax('messages', 'created_at')
+            ->with(['roomMemberships' => fn ($q) => $q->where('user_id', auth()->id())])
+            ->get()
+            ->filter(fn ($room) => $room->isUnreadFor(auth()->user()))
+            ->count();
     }
 
     public function getMessagesProperty()
@@ -89,7 +108,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
         broadcast(new MessageSent($message));
 
-        \App\Models\RoomMembership::updateOrCreate(
+        RoomMembership::updateOrCreate(
             ['user_id' => auth()->id(), 'room_id' => $this->room->id],
             ['last_read_at' => now()],
         );
@@ -212,12 +231,21 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     </div>
 
     <div class="sticky bottom-0 pb-4 pt-2 bg-white dark:bg-zinc-900 -mb-4">
-        <div class="flex items-center gap-x-3">
-            <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
-            <flux:button :href="route('rooms.index')" size="xs" variant="filled" wire:navigate>switch room</flux:button>
-            @can('update', $room)
-                <flux:link href="{{ route('rooms.edit', ['current_team' => auth()->user()->currentTeam->slug, 'room' => $room]) }}" wire:navigate>edit</flux:link>
-            @endcan
+        <div class="flex justify-between flex-wrap gap-x-3">
+            <div class="flex items-center gap-x-3">
+                <flux:heading level="1" class="lowercase"># {{ $room->name }}</flux:heading>
+                @can('update', $room)
+                    <flux:link href="{{ route('rooms.edit', ['current_team' => auth()->user()->currentTeam->slug, 'room' => $room]) }}" wire:navigate>edit</flux:link>
+                @endcan
+            </div>
+            <div>
+                <flux:link :href="route('rooms.index')" wire:navigate class="lowercase">
+                    all rooms
+                </flux:link>
+                @if ($this->unreadRoomsCount > 0)
+                    <small class="text-sm/6 sm:text-xs/6">({{ $this->unreadRoomsCount }} unread)</small>
+                @endif
+            </div>
         </div>
         <form wire:submit="sendMessage" class="mt-2">
             <flux:field>
