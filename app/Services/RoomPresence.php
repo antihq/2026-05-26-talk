@@ -26,7 +26,7 @@ class RoomPresence
 
             return collect($response->users ?? [])
                 ->pluck('id')
-                ->map(fn ($id) => $id)
+                ->map(fn ($id) => (int) $id)
                 ->toArray();
         } catch (\Throwable) {
             return [];
