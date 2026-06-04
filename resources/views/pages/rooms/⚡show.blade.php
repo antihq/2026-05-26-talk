@@ -199,30 +199,31 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                 @if($message->isThreaded) data-threaded @endif
                 @class([
                     'flex flex-col items-end' => $message->user_id === auth()->id(),
+                    'flex flex-col items-start' => $message->user_id !== auth()->id(),
                     'pt-2 pb-2 border-t border-zinc-950/5 dark:border-white/5',
-                    'data-threaded:pt-0 data-threaded:pb-0 data-threaded:border-t-0',
+                    'data-threaded:pt-0.5 data-threaded:pb-0 data-threaded:border-t-0',
                     'has-[+[data-threaded]]:pb-0',
                     'data-threaded:not-has-[+[data-threaded]]:pb-2',
                 ])
             >
                 @if (!$message->isThreaded)
-                    <div class="flex items-center gap-x-3">
+                    <div class="flex items-center gap-x-1.5">
                         @if ($message->user_id === auth()->id())
-                            <time class="lowercase"
+                            <time class="lowercase text-sm/6 sm:text-xs/6"
                                   datetime="{{ $message->created_at->toISOString() }}"
                                   x-text="localTime($el.getAttribute('datetime'))"
                             >{{ $message->created_at->format('g:i A') }}</time>
                             <p class="font-semibold">{{ $message->user->name }}</p>
                         @else
                             <p class="font-semibold">{{ $message->user->name }}</p>
-                            <time class="lowercase"
+                            <time class="lowercase text-sm/6 sm:text-xs/6"
                                   datetime="{{ $message->created_at->toISOString() }}"
                                   x-text="localTime($el.getAttribute('datetime'))"
                             >{{ $message->created_at->format('g:i A') }}</time>
                         @endif
                     </div>
                 @endif
-                <p class="whitespace-pre-line">{{ $message->body }}</p>
+                <p class="whitespace-pre-line bg-lime-400/20 rounded-md dark:bg-white/2.5 px-1.5 py-0.5">{{ $message->body }}</p>
             </li>
         @endforeach
     </ul>
