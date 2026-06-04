@@ -223,7 +223,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                         @endif
                     </div>
                 @endif
-                <p class="whitespace-pre-line bg-lime-400/20 rounded-md dark:bg-white/2.5 px-1.5 py-0.5">{{ $message->body }}</p>
+                <p class="whitespace-pre-line bg-lime-400/20 text-lime-950 rounded-md dark:bg-lime-400/10 dark:text-lime-200 px-1.5 py-0.5">{{ $message->body }}</p>
             </li>
         @endforeach
     </ul>
