@@ -373,7 +373,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         <form wire:submit="sendMessage">
             <flux:composer wire:model="body" label="message" rows="1" placeholder="message" inline label:sr-only>
                 <x-slot name="actionsLeading">
-                    <flux:file-upload wire:model="files" multiple>
+                    <flux:file-upload wire:model.live="files" multiple>
                         <flux:button variant="ghost" icon="paper-clip" />
                     </flux:file-upload>
                 </x-slot>
