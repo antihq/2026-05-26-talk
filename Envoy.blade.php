@@ -19,6 +19,7 @@
     install-npm
     build-assets
     run-migrations
+    storage-link
     optimize
     reload-phpfpm
     restart-queue
@@ -54,6 +55,11 @@
 @task('run-migrations', ['on' => 'web'])
     cd {{ $path }}
     php artisan migrate --force
+@endtask
+
+@task('storage-link', ['on' => 'web'])
+    cd {{ $path }}
+    php artisan storage:link
 @endtask
 
 @task('optimize', ['on' => 'web'])
