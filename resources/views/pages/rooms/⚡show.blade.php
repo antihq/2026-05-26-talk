@@ -374,12 +374,7 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             <flux:composer wire:model="body" label="message" rows="1" placeholder="message" inline label:sr-only>
                 <x-slot name="actionsLeading">
                     <flux:file-upload wire:model="files" multiple>
-                        <button type="button"
-                                class="flex items-center justify-center rounded-md p-1.5 transition-colors cursor-pointer hover:bg-zinc-100 dark:hover:bg-white/10 in-data-dragging:bg-zinc-100 dark:in-data-dragging:bg-white/10"
-                                aria-label="Attach files"
-                        >
-                            <flux:icon name="paper-clip" class="size-5 text-zinc-500 dark:text-zinc-400" />
-                        </button>
+                        <flux:button variant="ghost" icon="paper-clip" />
                     </flux:file-upload>
                 </x-slot>
                 <x-slot name="actionsTrailing">

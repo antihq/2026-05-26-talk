@@ -21,7 +21,7 @@
 $invalid ??= ($name && $errors->has($name));
 
 $classes = Flux::classes()
-    ->add('w-full p-1.5')
+    ->add('w-full p-0.5')
     ->add('grid grid-cols-[auto_1fr_1fr_auto]')
     ->add('shadow-xs [&:has([disabled])]:shadow-none border')
     ->add('bg-white dark:bg-white/10 dark:[&:has([disabled])]:bg-white/[7%]')
