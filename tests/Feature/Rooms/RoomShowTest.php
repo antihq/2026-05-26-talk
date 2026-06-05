@@ -11,8 +11,10 @@ use Illuminate\Support\Facades\Cache;
 use App\Models\User;
 use App\Notifications\NewMessage;
 use App\Services\RoomPresence;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 test('user can view a room', function () {
@@ -632,4 +634,250 @@ test('refreshMessages does not show room as unread for viewer on index', functio
     Livewire::actingAs($user)
         ->test('pages::rooms.index')
         ->assertDontSeeHtml('bg-lime-500');
+});
+
+test('user can upload a file as a message', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+    $file = UploadedFile::fake()->image('photo.jpg', 100, 100);
+
+    Notification::fake();
+    Event::fake([MessageSent::class, UnreadRoomUpdated::class]);
+
+    Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('files', [$file])
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('messages', [
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => '',
+        'file_name' => 'photo.jpg',
+        'file_type' => 'image/jpeg',
+    ]);
+});
+
+test('file upload broadcasts MessageSent event', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+    $file = UploadedFile::fake()->image('photo.jpg');
+
+    Event::fake([MessageSent::class]);
+    Notification::fake();
+
+    Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('files', [$file]);
+
+    Event::assertDispatched(MessageSent::class, function ($event) use ($room) {
+        return $event->message->room_id === $room->id
+            && $event->message->file_name === 'photo.jpg';
+    });
+});
+
+test('file upload broadcasts UnreadRoomUpdated to each team member', function () {
+    Storage::fake('public');
+
+    $sender = User::factory()->create();
+    $memberA = User::factory()->create();
+    $memberB = User::factory()->create();
+    $team = $sender->currentTeam;
+    $team->members()->attach($memberA, ['role' => TeamRole::Member->value]);
+    $team->members()->attach($memberB, ['role' => TeamRole::Member->value]);
+    $room = Room::factory()->create(['team_id' => $team->id]);
+    $file = UploadedFile::fake()->image('photo.jpg');
+
+    Event::fake([UnreadRoomUpdated::class]);
+    Notification::fake();
+
+    Livewire::actingAs($sender)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('files', [$file]);
+
+    Event::assertDispatched(UnreadRoomUpdated::class, function ($event) use ($memberA, $room) {
+        return $event->user->id === $memberA->id
+            && $event->room->id === $room->id;
+    });
+    Event::assertDispatched(UnreadRoomUpdated::class, function ($event) use ($memberB, $room) {
+        return $event->user->id === $memberB->id
+            && $event->room->id === $room->id;
+    });
+    Event::assertDispatchedTimes(UnreadRoomUpdated::class, 2);
+});
+
+test('file upload notifies disconnected team members', function () {
+    Storage::fake('public');
+
+    $sender = User::factory()->create();
+    $member = User::factory()->create();
+    $team = $sender->currentTeam;
+    $team->members()->attach($member, ['role' => TeamRole::Member->value]);
+    $room = Room::factory()->create(['team_id' => $team->id]);
+    $file = UploadedFile::fake()->image('photo.jpg');
+
+    $this->mock(RoomPresence::class, function ($mock) use ($room) {
+        $mock->shouldReceive('subscribedUserIds')->andReturn([]);
+    });
+
+    Notification::fake();
+
+    Livewire::actingAs($sender)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('files', [$file])
+        ->assertHasNoErrors();
+
+    Notification::assertSentTo(
+        $member,
+        NewMessage::class,
+        function ($notification) {
+            return $notification->body === 'photo.jpg';
+        },
+    );
+});
+
+test('file upload does not notify the sender', function () {
+    Storage::fake('public');
+
+    $sender = User::factory()->create();
+    $otherMember = User::factory()->create();
+    $team = $sender->currentTeam;
+    $team->members()->attach($otherMember, ['role' => TeamRole::Member->value]);
+    $room = Room::factory()->create(['team_id' => $team->id]);
+    $file = UploadedFile::fake()->image('photo.jpg');
+
+    $this->mock(RoomPresence::class, function ($mock) use ($room) {
+        $mock->shouldReceive('subscribedUserIds')->andReturn([]);
+    });
+
+    Notification::fake();
+
+    Livewire::actingAs($sender)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('files', [$file])
+        ->assertHasNoErrors();
+
+    Notification::assertNotSentTo($sender, NewMessage::class);
+});
+
+test('file upload updates sender last_read_at', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+    $file = UploadedFile::fake()->image('photo.jpg');
+
+    Notification::fake();
+
+    Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('files', [$file]);
+
+    $membership = RoomMembership::where('user_id', $user->id)
+        ->where('room_id', $room->id)
+        ->first();
+
+    $message = Message::where('room_id', $room->id)->first();
+
+    expect($membership->last_read_at)->not->toBeNull();
+    expect($membership->last_read_at->gte($message->created_at))->toBeTrue();
+});
+
+test('file upload rejects files over 10MB', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+    $file = UploadedFile::fake()->create('big.pdf', 11264);
+
+    Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room])
+        ->set('files', [$file])
+        ->assertHasErrors(['files.*']);
+});
+
+test('image file message renders an img tag', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => '',
+        'file_path' => 'attachments/test.png',
+        'file_name' => 'test.png',
+        'file_type' => 'image/png',
+        'file_size' => 1024,
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    $component->assertSeeHtml('<img');
+});
+
+test('non-image file message renders file name and size', function () {
+    $user = User::factory()->create();
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => '',
+        'file_path' => 'attachments/document.pdf',
+        'file_name' => 'document.pdf',
+        'file_type' => 'application/pdf',
+        'file_size' => 259432,
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    $component
+        ->assertSee('document.pdf')
+        ->assertSee('253.4 KB');
+});
+
+test('two consecutive file uploads from same user are threaded', function () {
+    $user = User::factory()->create(['name' => 'Alice']);
+    $team = $user->currentTeam;
+    $room = Room::factory()->create(['team_id' => $team->id]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => '',
+        'file_path' => 'attachments/first.pdf',
+        'file_name' => 'first.pdf',
+        'file_type' => 'application/pdf',
+        'file_size' => 100,
+        'created_at' => now()->subMinutes(2),
+    ]);
+
+    Message::factory()->create([
+        'room_id' => $room->id,
+        'user_id' => $user->id,
+        'body' => '',
+        'file_path' => 'attachments/second.pdf',
+        'file_name' => 'second.pdf',
+        'file_type' => 'application/pdf',
+        'file_size' => 200,
+        'created_at' => now()->subMinutes(1),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test('pages::rooms.show', ['room' => $room]);
+
+    $component
+        ->assertSee('first.pdf')
+        ->assertSee('second.pdf');
+    expect(substr_count($component->html(), 'Alice'))->toBe(1);
 });

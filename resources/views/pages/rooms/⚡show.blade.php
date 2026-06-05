@@ -14,12 +14,17 @@ use Livewire\Attributes\On;
 use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 new #[Layout('layouts.app'), Title('Room')] class extends Component
 {
+    use WithFileUploads;
+
     public Room $room;
 
     public string $body = '';
+
+    public $files = [];
 
     public function getListeners()
     {
@@ -106,6 +111,38 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             'body' => $this->body,
         ]);
 
+        $this->broadcastMessage($message);
+
+        $this->reset('body');
+    }
+
+    public function updatedFiles(): void
+    {
+        $this->validate([
+            'files.*' => ['file', 'max:10240'],
+        ]);
+
+        foreach ($this->files as $file) {
+            $path = $file->store('attachments', 'public');
+
+            $message = Message::create([
+                'room_id' => $this->room->id,
+                'user_id' => auth()->id(),
+                'body' => '',
+                'file_path' => $path,
+                'file_name' => $file->getClientOriginalName(),
+                'file_type' => $file->getMimeType(),
+                'file_size' => $file->getSize(),
+            ]);
+
+            $this->broadcastMessage($message);
+        }
+
+        $this->reset('files');
+    }
+
+    private function broadcastMessage(Message $message): void
+    {
         broadcast(new MessageSent($message));
 
         RoomMembership::updateOrCreate(
@@ -127,17 +164,17 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
 
         $disconnectedMembers = $otherMembers->reject(fn ($member) => in_array($member->id, $skipIds));
 
+        $body = $message->hasFile() ? $message->file_name : $message->body;
+
         Notification::send($disconnectedMembers, new NewMessage(
             room: $this->room,
             sender: auth()->user(),
-            body: $message->body,
+            body: $body,
         ));
 
         foreach ($otherMembers as $member) {
             broadcast(new UnreadRoomUpdated($this->room, $member));
         }
-
-        $this->reset('body');
 
         $this->dispatch('message-sent');
     }
@@ -146,8 +183,17 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     <div
         class="max-w-2xl"
         data-room-id="{{ $room->id }}"
+        @dragenter.prevent="handleDragEnter($event)"
+        @dragover.prevent
+        @dragleave="handleDragLeave($event)"
+        @drop="handleDrop($event)"
+        @paste="handlePaste($event)"
         x-data="{
             nearBottom: true,
+            dragging: false,
+            dragCounter: 0,
+            uploading: false,
+            uploadProgress: 0,
 
             init() {
                 navigator.clearAppBadge?.();
@@ -176,6 +222,51 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                 })
             },
 
+            uploadFile(file) {
+                this.uploading = true
+                $wire.upload('files', file,
+                    () => { this.uploading = false; this.uploadProgress = 0 },
+                    () => { this.uploading = false; this.uploadProgress = 0 },
+                    (e) => { this.uploadProgress = e.detail.progress },
+                    () => { this.uploading = false; this.uploadProgress = 0 },
+                )
+            },
+
+            handleDragEnter(e) {
+                if (e.dataTransfer.types.includes('Files')) {
+                    this.dragCounter++
+                    this.dragging = true
+                }
+            },
+
+            handleDragLeave(e) {
+                this.dragCounter--
+                if (this.dragCounter <= 0) {
+                    this.dragging = false
+                    this.dragCounter = 0
+                }
+            },
+
+            handleDrop(e) {
+                e.preventDefault()
+                this.dragging = false
+                this.dragCounter = 0
+
+                const files = Array.from(e.dataTransfer.files)
+                if (files.length === 0) return
+
+                files.forEach(file => this.uploadFile(file))
+                this.$nextTick(() => this.scrollToBottom())
+            },
+
+            handlePaste(e) {
+                const files = Array.from(e.clipboardData?.files ?? [])
+                if (files.length === 0) return
+
+                e.preventDefault()
+                files.forEach(file => this.uploadFile(file))
+            },
+
             localTime(iso) {
                 const date = new Date(iso)
                 const now = new Date()
@@ -193,6 +284,14 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
             }
         }"
 >
+    <div x-cloak x-show="dragging" x-transition.opacity.duration.200ms
+         class="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/30 dark:bg-zinc-950/50 backdrop-blur-sm">
+        <div class="flex gap-2 border-2 border-dashed border-lime-950 px-14 py-8 bg-lime-300">
+            <flux:icon name="cloud-arrow-up" class="size-6 text-lime-950" />
+            <p class="text-lime-950 font-semibold">drop files to send</p>
+        </div>
+    </div>
+
     <ul role="list">
         @foreach ($this->messages as $message)
             <li
@@ -223,13 +322,40 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                         @endif
                     </div>
                 @endif
-                <p
-                    @class([
-                        'whitespace-pre-line rounded-md px-1.5 py-0.5',
-                        'ml-8 bg-lime-400/20 text-lime-950 dark:bg-lime-400/10 dark:text-lime-200' => $message->user_id === auth()->id(),
-                        'mr-8 bg-zinc-600/10 text-zinc-950 dark:bg-white/5 dark:text-zinc-200' => $message->user_id !== auth()->id(),
-                    ])
-                >{{ $message->body }}</p>
+
+                @if ($message->hasFile() && $message->isImage())
+                    <a href="{{ $message->fileUrl() }}" target="_blank" rel="noopener"
+                       @class([
+                           'rounded-md overflow-hidden max-w-64',
+                           'ml-8' => $message->user_id === auth()->id(),
+                           'mr-8' => $message->user_id !== auth()->id(),
+                       ])
+                    >
+                        <img src="{{ $message->fileUrl() }}" alt="{{ $message->file_name }}" class="w-full h-auto">
+                    </a>
+                @elseif ($message->hasFile())
+                    <a href="{{ $message->fileUrl() }}" target="_blank" rel="noopener"
+                       @class([
+                           'flex gap-1.5 rounded-md px-3 py-2 max-w-72',
+                           'ml-8 bg-lime-400/20 text-lime-950 dark:bg-lime-400/10 dark:text-lime-200' => $message->user_id === auth()->id(),
+                           'mr-8 bg-zinc-600/10 text-zinc-950 dark:bg-white/5 dark:text-zinc-200' => $message->user_id !== auth()->id(),
+                       ])
+                    >
+                        <flux:icon name="document" class="size-5 shrink-0" />
+                        <div class="min-w-0">
+                            <p class="truncate">{{ $message->file_name }}</p>
+                            <p class="text-sm/5 sm:text-xs/5">{{ $message->formattedFileSize() }}</p>
+                        </div>
+                    </a>
+                @else
+                    <p
+                        @class([
+                            'whitespace-pre-line rounded-md px-1.5 py-0.5',
+                            'ml-8 bg-lime-400/20 text-lime-950 dark:bg-lime-400/10 dark:text-lime-200' => $message->user_id === auth()->id(),
+                            'mr-8 bg-zinc-600/10 text-zinc-950 dark:bg-white/5 dark:text-zinc-200' => $message->user_id !== auth()->id(),
+                        ])
+                    >{{ $message->body }}</p>
+                @endif
             </li>
         @endforeach
     </ul>
@@ -241,8 +367,21 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
     </div>
 
     <div class="sticky bottom-0 pb-4 pt-2 bg-white dark:bg-zinc-900 -mb-4">
+        <div x-cloak x-show="uploading" x-transition class="h-0.5 mb-1 bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
+            <div class="h-full bg-lime-300 transition-all duration-150" :style="'width:' + uploadProgress + '%'"></div>
+        </div>
         <form wire:submit="sendMessage">
             <flux:composer wire:model="body" label="message" rows="1" placeholder="message" inline label:sr-only>
+                <x-slot name="actionsLeading">
+                    <flux:file-upload wire:model="files" multiple>
+                        <button type="button"
+                                class="flex items-center justify-center rounded-md p-1.5 transition-colors cursor-pointer hover:bg-zinc-100 dark:hover:bg-white/10 in-data-dragging:bg-zinc-100 dark:in-data-dragging:bg-white/10"
+                                aria-label="Attach files"
+                        >
+                            <flux:icon name="paper-clip" class="size-5 text-zinc-500 dark:text-zinc-400" />
+                        </button>
+                    </flux:file-upload>
+                </x-slot>
                 <x-slot name="actionsTrailing">
                     <flux:button type="submit" variant="primary" color="lime" class="lowercase">send</flux:button>
                 </x-slot>
