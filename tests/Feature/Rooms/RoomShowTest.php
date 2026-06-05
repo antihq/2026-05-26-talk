@@ -124,6 +124,10 @@ test('sending a message notifies other team members', function () {
 
     $room = Room::factory()->create(['team_id' => $team->id]);
 
+    $this->mock(RoomPresence::class, function ($mock) use ($room) {
+        $mock->shouldReceive('subscribedUserIds')->andReturn([]);
+    });
+
     Notification::fake();
 
     Livewire::actingAs($sender)
@@ -147,6 +151,10 @@ test('sending a message does not notify the sender', function () {
 
     $room = Room::factory()->create(['team_id' => $team->id]);
 
+    $this->mock(RoomPresence::class, function ($mock) use ($room) {
+        $mock->shouldReceive('subscribedUserIds')->andReturn([]);
+    });
+
     Notification::fake();
 
     Livewire::actingAs($sender)
@@ -164,6 +172,10 @@ test('notifies team member not viewing the room', function () {
     $team = $sender->currentTeam;
     $team->members()->attach($viewer, ['role' => TeamRole::Member->value]);
     $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $this->mock(RoomPresence::class, function ($mock) use ($room) {
+        $mock->shouldReceive('subscribedUserIds')->andReturn([]);
+    });
 
     Notification::fake();
 
@@ -289,6 +301,10 @@ test('notifies disconnected team member', function () {
     $team = $sender->currentTeam;
     $team->members()->attach($member, ['role' => TeamRole::Member->value]);
     $room = Room::factory()->create(['team_id' => $team->id]);
+
+    $this->mock(RoomPresence::class, function ($mock) use ($room) {
+        $mock->shouldReceive('subscribedUserIds')->andReturn([]);
+    });
 
     Notification::fake();
 
