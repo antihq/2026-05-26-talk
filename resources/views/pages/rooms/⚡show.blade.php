@@ -373,9 +373,11 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
         <form wire:submit="sendMessage">
             <flux:composer wire:model="body" label="message" rows="1" placeholder="message" inline label:sr-only>
                 <x-slot name="actionsLeading">
-                    <flux:file-upload wire:model.live="files" multiple>
-                        <flux:button variant="ghost" icon="paper-clip" />
-                    </flux:file-upload>
+                    <div>
+                        <flux:button variant="ghost" icon="paper-clip" @click="$refs.fileInput.click()" />
+                        <input type="file" multiple x-ref="fileInput" class="hidden"
+                               @change="Array.from($event.target.files).forEach(f => uploadFile(f)); $event.target.value = ''">
+                    </div>
                 </x-slot>
                 <x-slot name="actionsTrailing">
                     <flux:button type="submit" variant="primary" color="lime" class="lowercase">send</flux:button>
