@@ -223,7 +223,13 @@ new #[Layout('layouts.app'), Title('Room')] class extends Component
                         @endif
                     </div>
                 @endif
-                <p class="whitespace-pre-line bg-lime-400/20 text-lime-950 rounded-md dark:bg-lime-400/10 dark:text-lime-200 px-1.5 py-0.5">{{ $message->body }}</p>
+                <p
+                    @class([
+                        'whitespace-pre-line rounded-md px-1.5 py-0.5',
+                        'bg-lime-400/20 text-lime-950 dark:bg-lime-400/10 dark:text-lime-200' => $message->user_id === auth()->id(),
+                        'bg-zinc-600/10 text-zinc-950 dark:bg-white/5 dark:text-zinc-200' => $message->user_id !== auth()->id(),
+                    ])
+                >{{ $message->body }}</p>
             </li>
         @endforeach
     </ul>
